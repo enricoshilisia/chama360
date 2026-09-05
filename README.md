@@ -1,5 +1,8 @@
 # Chama360
 
+📱 **[Download the latest Android build](https://github.com/enricoshilisia/chama360/releases/download/android-latest/chama360-android-debug.apk)**
+(debug build — enable "install from unknown sources" for whichever app you download it through)
+
 Flutter + Supabase chama (savings group) app. No Django, no VPS — Supabase is
 the entire backend (Postgres, auth, realtime, storage), Flutter is the only
 client. See `supabase/migrations/` for the full schema and business logic
