@@ -94,15 +94,34 @@ class ProfileScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 24),
-          OutlinedButton.icon(
-            onPressed: () => ref.read(authRepositoryProvider).signOut(),
-            icon: const Icon(Icons.logout_rounded, color: Colors.red),
-            label: const Text('Sign out', style: TextStyle(color: Colors.red)),
-            style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: Colors.red),
-              padding: const EdgeInsets.symmetric(vertical: 14),
+          if (biometricSupported && biometricEnabled) ...[
+            // With biometrics on, "signing out" locks the app behind
+            // Face ID/fingerprint instead of destroying the session — so
+            // reopening the app always prompts biometric, never a password
+            // form. A full account sign-out is still one tap away below,
+            // for switching accounts or turning biometric off for good.
+            OutlinedButton.icon(
+              onPressed: () => ref.read(isAppUnlockedProvider.notifier).state = false,
+              icon: const Icon(Icons.lock_outline_rounded),
+              label: const Text('Lock app'),
+              style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
             ),
-          ),
+            const SizedBox(height: 10),
+            TextButton(
+              onPressed: () => ref.read(authRepositoryProvider).signOut(),
+              child: const Text('Sign out of account completely',
+                  style: TextStyle(color: Colors.red)),
+            ),
+          ] else
+            OutlinedButton.icon(
+              onPressed: () => ref.read(authRepositoryProvider).signOut(),
+              icon: const Icon(Icons.logout_rounded, color: Colors.red),
+              label: const Text('Sign out', style: TextStyle(color: Colors.red)),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Colors.red),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+            ),
         ],
       ),
     );

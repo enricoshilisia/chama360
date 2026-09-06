@@ -14,21 +14,26 @@ class GlassContainer extends StatelessWidget {
     this.padding = const EdgeInsets.all(20),
     this.borderRadius = 24,
     this.blur = 18,
-    this.opacity = 0.55,
   });
 
   final Widget child;
   final EdgeInsetsGeometry padding;
   final double borderRadius;
   final double blur;
-  final double opacity;
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final tint = isDark ? AppColors.darkGlassTint : AppColors.lightGlassTint;
-    final borderColor =
-        (isDark ? Colors.white : Colors.white).withValues(alpha: isDark ? 0.10 : 0.6);
+    // Dark mode gets away with a faint white wash because it's translucent
+    // white over a dark backdrop — real contrast either way. Light mode
+    // doing the same thing is near-white over near-white: the card
+    // disappears. So light mode instead leans toward a near-solid white
+    // fill (still gently tinted top-to-bottom for the glass feel) with a
+    // dark hairline border and a real shadow, the way a card should read.
+    final borderColor = isDark
+        ? Colors.white.withValues(alpha: 0.10)
+        : Colors.black.withValues(alpha: 0.08);
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(borderRadius),
@@ -42,16 +47,15 @@ class GlassContainer extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                tint.withValues(alpha: isDark ? 0.10 : opacity),
-                tint.withValues(alpha: isDark ? 0.04 : opacity * 0.5),
-              ],
+              colors: isDark
+                  ? [tint.withValues(alpha: 0.10), tint.withValues(alpha: 0.04)]
+                  : [tint.withValues(alpha: 0.92), tint.withValues(alpha: 0.82)],
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
-                blurRadius: 24,
-                offset: const Offset(0, 8),
+                color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.10),
+                blurRadius: 20,
+                offset: const Offset(0, 6),
               ),
             ],
           ),

@@ -80,10 +80,18 @@ class AppTheme {
             const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),
       cardTheme: CardThemeData(
-        elevation: 0,
+        // A white card floating on a near-white background needs its own
+        // edge and lift to read as a card at all — a hairline border plus
+        // a soft shadow, not just elevation:0 and hoping the color differs
+        // enough. Dark mode already has plenty of contrast without this.
+        elevation: isDark ? 0 : 1,
+        shadowColor: Colors.black.withValues(alpha: isDark ? 0 : 0.10),
         color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(18),
+          side: BorderSide(
+            color: (isDark ? Colors.white : Colors.black).withValues(alpha: isDark ? 0.08 : 0.08),
+          ),
         ),
       ),
       dividerTheme: DividerThemeData(

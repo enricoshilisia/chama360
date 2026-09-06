@@ -29,7 +29,12 @@ class LocalDb {
     final path = p.join(dbPath, 'chama360.db');
     return openDatabase(
       path,
-      version: 1,
+      version: 2,
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute('ALTER TABLE cached_transactions ADD COLUMN member_name TEXT');
+        }
+      },
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE cached_chamas (
@@ -51,7 +56,8 @@ class LocalDb {
             type TEXT NOT NULL,
             amount REAL NOT NULL,
             balance_after REAL,
-            created_at TEXT
+            created_at TEXT,
+            member_name TEXT
           )
         ''');
         await db.execute('''

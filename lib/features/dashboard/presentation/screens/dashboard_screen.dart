@@ -2,11 +2,10 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-// StateProvider moved to a separate "legacy" import in Riverpod 3.x.
-import 'package:flutter_riverpod/legacy.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/services/connectivity_service.dart';
+import '../../../../core/services/privacy_provider.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/layout.dart';
 import '../../../../core/utils/currency.dart';
@@ -17,11 +16,6 @@ import '../../../chama/domain/models/chama_transaction.dart';
 import '../../../chama/presentation/providers/chama_providers.dart';
 import '../../../notifications/presentation/providers/notifications_providers.dart';
 import '../../../reports/presentation/widgets/chama_report_section.dart';
-
-/// Local UI-only state: whether the hero balance figure is masked.
-/// Not persisted — resets to visible each app launch, which is the
-/// expected behaviour for a "peek" toggle.
-final _balanceVisibleProvider = StateProvider<bool>((ref) => true);
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -213,7 +207,7 @@ class _ActiveHome extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isOnline = ref.watch(isOnlineProvider);
-    final balanceVisible = ref.watch(_balanceVisibleProvider);
+    final balanceVisible = ref.watch(balanceVisibleProvider);
     final total = chamas.fold<double>(0, (sum, c) => sum + c.balance);
     final activityAsync = ref.watch(recentActivityProvider);
     final chamaNames = {for (final c in chamas) c.id: c.name};
@@ -232,7 +226,7 @@ class _ActiveHome extends ConsumerWidget {
             chamaCount: chamas.length,
             visible: balanceVisible,
             onToggleVisible: () =>
-                ref.read(_balanceVisibleProvider.notifier).state = !balanceVisible,
+                ref.read(balanceVisibleProvider.notifier).state = !balanceVisible,
           ),
           const SizedBox(height: 26),
           Text('Recent activity',
@@ -257,7 +251,10 @@ class _ActiveHome extends ConsumerWidget {
                     _ActivityTile(
                       txn: txn,
                       chamaName: chamaNames[txn.chamaId] ?? 'Chama',
-                      onTap: () => context.push('/chamas/${txn.chamaId}'),
+                      visible: balanceVisible,
+                      onTap: () => txn.memberId == null
+                          ? context.push('/chamas/${txn.chamaId}')
+                          : context.push('/chamas/${txn.chamaId}/members/${txn.memberId}'),
                     ),
                 ],
               );
@@ -271,11 +268,11 @@ class _ActiveHome extends ConsumerWidget {
                     .titleMedium
                     ?.copyWith(fontWeight: FontWeight.w800)),
             const SizedBox(height: 10),
-            _ChamaCarousel(chamas: chamas),
+            _ChamaCarousel(chamas: chamas, visible: balanceVisible),
           ],
           if (chamas.isNotEmpty) ...[
             const SizedBox(height: 26),
-            ChamaReportSection(chamaId: chamas.first.id),
+            ChamaReportSection(chamaId: chamas.first.id, visible: balanceVisible),
           ],
         ],
       ),
@@ -400,10 +397,16 @@ class _HeroBalanceCard extends StatelessWidget {
 }
 
 class _ActivityTile extends StatelessWidget {
-  const _ActivityTile({required this.txn, required this.chamaName, required this.onTap});
+  const _ActivityTile({
+    required this.txn,
+    required this.chamaName,
+    required this.visible,
+    required this.onTap,
+  });
 
   final ChamaTransaction txn;
   final String chamaName;
+  final bool visible;
   final VoidCallback onTap;
 
   @override
@@ -439,10 +442,12 @@ class _ActivityTile extends StatelessWidget {
                     Text(txn.type.replaceAll('_', ' ').toUpperCase(),
                         style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
                     const SizedBox(height: 2),
-                    Text(chamaName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(color: Colors.grey.shade500, fontSize: 11.5)),
+                    Text(
+                      txn.memberName == null ? chamaName : '${txn.memberName} · $chamaName',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: Colors.grey.shade500, fontSize: 11.5),
+                    ),
                   ],
                 ),
               ),
@@ -450,7 +455,7 @@ class _ActivityTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    '${isCredit ? '+' : '-'}${formatMoney(txn.amount)}',
+                    visible ? '${isCredit ? '+' : '-'}${formatMoney(txn.amount)}' : '••••',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: isCredit ? Colors.green.shade700 : Colors.orange.shade800,
@@ -471,9 +476,10 @@ class _ActivityTile extends StatelessWidget {
 }
 
 class _ChamaCarousel extends StatelessWidget {
-  const _ChamaCarousel({required this.chamas});
+  const _ChamaCarousel({required this.chamas, required this.visible});
 
   final List<Chama> chamas;
+  final bool visible;
 
   @override
   Widget build(BuildContext context) {
@@ -528,7 +534,10 @@ class _ChamaCarousel extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
                     const SizedBox(height: 4),
-                    Text(formatMoney(chama.balance, currency: chama.currency),
+                    Text(
+                        visible
+                            ? formatMoney(chama.balance, currency: chama.currency)
+                            : '••••••',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w800,

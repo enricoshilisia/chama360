@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/services/privacy_provider.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/currency.dart';
 import '../../../../core/widgets/glass_container.dart';
@@ -11,11 +12,14 @@ import '../providers/reports_providers.dart';
 
 /// The dashboard's "Reports" block — fund overview, a 6-month contribution
 /// trend, top contributors, and loan book health. Everything a chairperson
-/// would want to glance at without leaving the home screen.
+/// would want to glance at without leaving the home screen. [visible]
+/// mirrors the hero balance card's peek toggle so every money figure here
+/// hides consistently, not just the top-line total.
 class ChamaReportSection extends ConsumerWidget {
-  const ChamaReportSection({super.key, required this.chamaId});
+  const ChamaReportSection({super.key, required this.chamaId, required this.visible});
 
   final String chamaId;
+  final bool visible;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -33,7 +37,7 @@ class ChamaReportSection extends ConsumerWidget {
             child: Center(child: CircularProgressIndicator()),
           ),
           error: (e, _) => Text('Could not load report: $e'),
-          data: (report) => _ReportBody(report: report),
+          data: (report) => _ReportBody(report: report, visible: visible),
         ),
       ],
     );
@@ -41,9 +45,10 @@ class ChamaReportSection extends ConsumerWidget {
 }
 
 class _ReportBody extends StatelessWidget {
-  const _ReportBody({required this.report});
+  const _ReportBody({required this.report, required this.visible});
 
   final ChamaReport report;
+  final bool visible;
 
   @override
   Widget build(BuildContext context) {
@@ -64,7 +69,7 @@ class _ReportBody extends StatelessWidget {
             Expanded(
               child: _StatTile(
                 label: 'Total contributed',
-                value: formatMoney(report.totalContributions),
+                value: maskable(formatMoney(report.totalContributions), visible),
                 icon: Icons.savings_rounded,
                 color: AppColors.seedDark,
               ),
@@ -86,7 +91,7 @@ class _ReportBody extends StatelessWidget {
             Expanded(
               child: _StatTile(
                 label: 'Loans outstanding',
-                value: formatMoney(report.totalOutstanding),
+                value: maskable(formatMoney(report.totalOutstanding), visible),
                 icon: Icons.request_quote_outlined,
                 color: Colors.orange.shade700,
               ),
@@ -111,7 +116,15 @@ class _ReportBody extends StatelessWidget {
           const SizedBox(height: 10),
           GlassContainer(
             padding: const EdgeInsets.fromLTRB(12, 20, 16, 8),
-            child: SizedBox(height: 160, child: _MonthlyBarChart(monthly: report.monthly)),
+            child: SizedBox(
+              height: 160,
+              child: visible
+                  ? _MonthlyBarChart(monthly: report.monthly)
+                  : Center(
+                      child: Text('Hidden — tap the eye icon above to reveal',
+                          style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                    ),
+            ),
           ),
         ],
         if (report.topContributors.isNotEmpty) ...[
@@ -135,7 +148,7 @@ class _ReportBody extends StatelessWidget {
                         child: Text(report.topContributors[i].name,
                             maxLines: 1, overflow: TextOverflow.ellipsis),
                       ),
-                      Text(formatMoney(report.topContributors[i].total),
+                      Text(maskable(formatMoney(report.topContributors[i].total), visible),
                           style: const TextStyle(fontWeight: FontWeight.w700)),
                     ],
                   ),

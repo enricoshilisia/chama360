@@ -9,6 +9,7 @@ import '../../features/chama/presentation/screens/chama_detail_screen.dart';
 import '../../features/chama/presentation/screens/chama_members_screen.dart';
 import '../../features/chama/presentation/screens/create_chama_screen.dart';
 import '../../features/chama/presentation/screens/join_chama_screen.dart';
+import '../../features/chama/presentation/screens/member_detail_screen.dart';
 import '../../features/chama/presentation/screens/my_chamas_screen.dart';
 import '../../features/dashboard/presentation/screens/dashboard_screen.dart';
 import '../../features/loans/presentation/screens/loan_detail_screen.dart';
@@ -91,6 +92,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                           pageBuilder: (context, state) => fadeThroughPage(
                             state: state,
                             child: AddMemberScreen(chamaId: state.pathParameters['id']!),
+                          ),
+                        ),
+                        GoRoute(
+                          path: ':memberId',
+                          pageBuilder: (context, state) => fadeThroughPage(
+                            state: state,
+                            child: MemberDetailScreen(
+                              chamaId: state.pathParameters['id']!,
+                              memberId: state.pathParameters['memberId']!,
+                            ),
                           ),
                         ),
                       ],

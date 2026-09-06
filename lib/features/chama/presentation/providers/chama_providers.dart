@@ -49,3 +49,9 @@ final recentActivityProvider = FutureProvider.autoDispose<List<ChamaTransaction>
   final chamas = await ref.watch(myChamasProvider.future);
   return ref.watch(chamaRepositoryProvider).recentActivity(chamas.map((c) => c.id).toList());
 });
+
+/// One member's full activity within a chama — powers their history screen.
+final memberTransactionsProvider = FutureProvider.autoDispose
+    .family<List<ChamaTransaction>, (String chamaId, String memberId)>((ref, key) async {
+  return ref.watch(chamaRepositoryProvider).transactionsForMember(key.$1, key.$2);
+});

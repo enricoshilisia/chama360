@@ -14,6 +14,12 @@ class ChamaRepository {
   final SupabaseClient _client;
   final _localDb = LocalDb.instance;
 
+  /// Joins the ledger to the contributing/borrowing member's name — used by
+  /// every transactions query so activity feeds never show a bare amount
+  /// with no indication of whose it is.
+  static const _transactionSelect =
+      '*, chama_members(user_id, managed_full_name:full_name, profiles(full_name, email))';
+
   Future<List<Chama>> myChamas({bool online = true}) async {
     if (!online) {
       final rows = await _localDb.getCachedChamas();
@@ -72,7 +78,7 @@ class ChamaRepository {
     try {
       final rows = await _client
           .from('transactions')
-          .select()
+          .select(_transactionSelect)
           .eq('chama_id', chamaId)
           .order('created_at', ascending: false)
           .limit(50);
@@ -92,6 +98,23 @@ class ChamaRepository {
     }
   }
 
+  /// A single member's full activity within a chama — contributions, loan
+  /// disbursements, repayments — for their "history" view.
+  Future<List<ChamaTransaction>> transactionsForMember(
+    String chamaId,
+    String memberId,
+  ) async {
+    final rows = await _client
+        .from('transactions')
+        .select(_transactionSelect)
+        .eq('chama_id', chamaId)
+        .eq('member_id', memberId)
+        .order('created_at', ascending: false);
+    return (rows as List)
+        .map((r) => ChamaTransaction.fromJson(r as Map<String, dynamic>))
+        .toList();
+  }
+
   /// Most recent ledger activity across every chama the user belongs to —
   /// powers the home dashboard's activity feed. A single query filtered by
   /// chama_id IN (...) rather than one query per chama.
@@ -99,7 +122,7 @@ class ChamaRepository {
     if (chamaIds.isEmpty) return [];
     final rows = await _client
         .from('transactions')
-        .select()
+        .select(_transactionSelect)
         .inFilter('chama_id', chamaIds)
         .order('created_at', ascending: false)
         .limit(20);

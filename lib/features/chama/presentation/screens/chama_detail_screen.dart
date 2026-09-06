@@ -120,7 +120,16 @@ class ChamaDetailScreen extends ConsumerWidget {
                       );
                     }
                     return Column(
-                      children: [for (final t in txns) _TxnTile(t, chama.currency)],
+                      children: [
+                        for (final t in txns)
+                          _TxnTile(
+                            t,
+                            chama.currency,
+                            onTap: t.memberId == null
+                                ? null
+                                : () => context.push('/chamas/$chamaId/members/${t.memberId}'),
+                          ),
+                      ],
                     );
                   },
                 ),
@@ -134,10 +143,11 @@ class ChamaDetailScreen extends ConsumerWidget {
 }
 
 class _TxnTile extends StatelessWidget {
-  const _TxnTile(this.txn, this.currency);
+  const _TxnTile(this.txn, this.currency, {this.onTap});
 
   final ChamaTransaction txn;
   final String currency;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -152,6 +162,7 @@ class _TxnTile extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       child: ListTile(
+        onTap: onTap,
         leading: CircleAvatar(
           backgroundColor:
               (isCredit ? Colors.green : Colors.orange).withValues(alpha: 0.15),
@@ -160,7 +171,10 @@ class _TxnTile extends StatelessWidget {
         title: Text(txn.type.replaceAll('_', ' ').toUpperCase(),
             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
         subtitle: Text(
-          '${txn.createdAt.toLocal()}'.split('.').first,
+          [
+            if (txn.memberName != null) txn.memberName!,
+            '${txn.createdAt.toLocal()}'.split('.').first,
+          ].join(' · '),
           style: const TextStyle(fontSize: 11.5),
         ),
         trailing: Text(

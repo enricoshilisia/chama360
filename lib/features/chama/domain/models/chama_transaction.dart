@@ -1,5 +1,7 @@
 /// Row from the `transactions` ledger table (auto-populated by DB triggers,
-/// see supabase/migrations/0001_init_schema.sql).
+/// see supabase/migrations/0001_init_schema.sql), joined with the member's
+/// name so the activity feed can show who a contribution/loan belongs to
+/// without a second lookup.
 class ChamaTransaction {
   const ChamaTransaction({
     required this.id,
@@ -9,6 +11,7 @@ class ChamaTransaction {
     required this.amount,
     this.balanceAfter,
     required this.createdAt,
+    this.memberName,
   });
 
   final String id;
@@ -18,8 +21,16 @@ class ChamaTransaction {
   final double amount;
   final double? balanceAfter;
   final DateTime createdAt;
+  final String? memberName;
 
   factory ChamaTransaction.fromJson(Map<String, dynamic> json) {
+    final memberJoin = json['chama_members'] as Map<String, dynamic>?;
+    final profile = memberJoin?['profiles'] as Map<String, dynamic>?;
+    final name = (profile?['full_name'] as String?)?.trim();
+    final resolvedName = (name != null && name.isNotEmpty)
+        ? name
+        : (memberJoin?['managed_full_name'] as String? ?? profile?['email'] as String?);
+
     return ChamaTransaction(
       id: json['id'] as String,
       chamaId: json['chama_id'] as String,
@@ -28,6 +39,7 @@ class ChamaTransaction {
       amount: (json['amount'] as num).toDouble(),
       balanceAfter: (json['balance_after'] as num?)?.toDouble(),
       createdAt: DateTime.parse(json['created_at'] as String),
+      memberName: resolvedName,
     );
   }
 
@@ -39,6 +51,7 @@ class ChamaTransaction {
         'amount': amount,
         'balance_after': balanceAfter,
         'created_at': createdAt.toIso8601String(),
+        'member_name': memberName,
       };
 
   factory ChamaTransaction.fromCacheRow(Map<String, Object?> row) {
@@ -50,6 +63,7 @@ class ChamaTransaction {
       amount: (row['amount'] as num).toDouble(),
       balanceAfter: (row['balance_after'] as num?)?.toDouble(),
       createdAt: DateTime.parse(row['created_at'] as String),
+      memberName: row['member_name'] as String?,
     );
   }
 }

@@ -46,6 +46,7 @@ class ChamaMembersScreen extends ConsumerWidget {
 
             return Card(
               child: ListTile(
+                onTap: () => context.push('/chamas/$chamaId/members/${m.id}'),
                 leading: CircleAvatar(child: Text(m.displayName.substring(0, 1).toUpperCase())),
                 title: Text(m.displayName),
                 subtitle: Text(
