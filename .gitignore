@@ -63,3 +63,6 @@ app.*.map.json
 # .secrets/, which is never bundled and never committed.
 .env
 .secrets/
+
+# Supabase CLI scratch files
+supabase/.temp/
