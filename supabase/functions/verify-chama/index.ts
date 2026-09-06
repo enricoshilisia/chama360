@@ -1,12 +1,23 @@
-// The target of the "Approve this chama" link in the notification email.
+// The target of the "Approve this registration" link in the owner's email.
 //
-// It's a plain GET handler that returns a page, not a JSON API — the owner
-// clicks the link in their mail client and lands here. The token is the
-// entire credential, so it's long, single-use, and cleared on approval.
-// On success the chairperson is emailed to say their chama is live.
+// This is where a chama actually comes into existence. Before this click
+// there is no chama, no account, nothing but an application row — which is
+// the point: nobody gets a foothold on the platform until the owner says
+// so.
 //
-// Deploy with JWT verification off, since a link clicked from an email
-// carries no Supabase session:
+// On approval, in order:
+//   1. approve_chama_registration()  provisions the chama (SQL)
+//   2. inviteUserByEmail()           creates the chairperson's account and
+//                                    makes Supabase send them the invite —
+//                                    this is the "confirmation" email, and
+//                                    it can only happen after approval
+//   3. attach_chairperson()          links that account to the chama
+//
+// Resend is not involved here. It only ever tells the owner a registration
+// arrived; everything facing the chairperson is Supabase's own auth mail.
+//
+// Deploy with JWT verification off — a link clicked from an email carries
+// no session:
 //   supabase functions deploy verify-chama --no-verify-jwt
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
@@ -29,7 +40,7 @@ function page(title: string, message: string, ok: boolean): Response {
 </head>
 <body style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:#F3F8F3;margin:0;
              min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px">
-  <div style="background:#fff;border-radius:20px;padding:40px;max-width:420px;text-align:center;
+  <div style="background:#fff;border-radius:20px;padding:40px;max-width:440px;text-align:center;
               box-shadow:0 10px 40px rgba(0,0,0,.08)">
     <div style="width:56px;height:56px;border-radius:50%;background:${accent}1A;color:${accent};
                 font-size:28px;line-height:56px;margin:0 auto 20px">${ok ? '&#10003;' : '!'}</div>
@@ -42,77 +53,21 @@ function page(title: string, message: string, ok: boolean): Response {
   );
 }
 
-/** Tells the chairperson their chama is live. Best-effort: a mail failure
- *  must not make an approval that already happened look like it failed. */
-async function notifyChairperson(
-  toEmail: string,
-  contactName: string,
-  chamaName: string,
-): Promise<boolean> {
-  const resendKey = Deno.env.get('RESEND_API_KEY');
-  const mailFrom = Deno.env.get('MAIL_FROM') ?? 'Chama360 <onboarding@resend.dev>';
-  if (!resendKey || !toEmail) return false;
-
-  const safeName = escapeHtml(contactName || 'there');
-  const safeChama = escapeHtml(chamaName);
-
-  const html = `
-    <div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:520px;margin:0 auto;padding:24px">
-      <h2 style="margin:0 0 4px;color:#1a1a1a">${safeChama} is approved</h2>
-      <p style="color:#555;font-size:15px;line-height:1.6;margin:16px 0">
-        Hello ${safeName},
-      </p>
-      <p style="color:#555;font-size:15px;line-height:1.6;margin:0 0 16px">
-        Your chama registration has been reviewed and approved. You can now sign in,
-        add your members, and start recording contributions and loans.
-      </p>
-      <p style="color:#555;font-size:15px;line-height:1.6;margin:0 0 24px">
-        Members without email addresses can be added by name, and you can give any of
-        them a phone-number login when they're ready to use the app themselves.
-      </p>
-      <p style="color:#999;font-size:12px;margin:0">
-        Chama360 — you're receiving this because you registered ${safeChama}.
-      </p>
-    </div>`;
-
-  try {
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${resendKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: mailFrom,
-        to: [toEmail],
-        subject: `${chamaName} has been approved`,
-        html,
-      }),
-    });
-    if (!res.ok) console.error('Approval email rejected', await res.text());
-    return res.ok;
-  } catch (err) {
-    console.error('Approval email failed to send', err);
-    return false;
-  }
-}
-
 Deno.serve(async (req) => {
   const token = new URL(req.url).searchParams.get('token');
 
   if (!token) {
-    return page('Link incomplete', 'This verification link is missing its token.', false);
+    return page('Link incomplete', 'This approval link is missing its token.', false);
   }
 
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-  );
+  const url = Deno.env.get('SUPABASE_URL')!;
+  const admin = createClient(url, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 
-  const { data, error } = await supabase.rpc('verify_chama_by_token', { p_token: token });
+  // 1. Provision the chama.
+  const { data, error } = await admin.rpc('approve_chama_registration', { p_token: token });
 
   if (error) {
-    console.error('Verification failed', error.message);
+    console.error('Approval failed', error.message);
     return page(
       'Link not valid',
       'This link has already been used, or it was never valid. Nothing has been changed.',
@@ -122,21 +77,70 @@ Deno.serve(async (req) => {
 
   const result = Array.isArray(data) ? data[0] : data;
   const chamaName = result?.chama_name ?? 'The chama';
-  const contactEmail = result?.contact_email ?? '';
-  const contactName = result?.contact_name ?? '';
+  const chamaId = result?.chama_id as string | undefined;
+  const contactEmail = (result?.contact_email ?? '') as string;
+  const contactName = (result?.contact_name ?? '') as string;
 
-  if (result?.already_verified) {
-    return page('Already approved', `${escapeHtml(chamaName)} was approved earlier. Nothing to do.`, true);
+  if (result?.already_approved) {
+    return page(
+      'Already approved',
+      `${escapeHtml(chamaName)} was approved earlier. Nothing to do.`,
+      true,
+    );
   }
 
-  const emailed = await notifyChairperson(contactEmail, contactName, chamaName);
+  // 2. Create the chairperson's account. Supabase sends the invite email as
+  //    part of this call — the chairperson's first contact from us, and
+  //    only now that approval has happened.
+  let invitedUserId: string | null = null;
+  let inviteFailure: string | null = null;
+
+  const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(
+    contactEmail,
+    { data: { full_name: contactName, role: 'chairperson' } },
+  );
+
+  if (inviteError) {
+    // Most likely: this email already has an account from an earlier life.
+    // Fall back to linking the existing account rather than stranding the
+    // chama with no owner.
+    console.error('Invite failed', inviteError.message);
+    const { data: existing } = await admin.auth.admin.listUsers();
+    const match = existing?.users?.find(
+      (u) => (u.email ?? '').toLowerCase() === contactEmail.toLowerCase(),
+    );
+    if (match) {
+      invitedUserId = match.id;
+    } else {
+      inviteFailure = inviteError.message;
+    }
+  } else {
+    invitedUserId = invited?.user?.id ?? null;
+  }
+
+  // 3. Attach whoever we ended up with to the chama.
+  if (chamaId && invitedUserId) {
+    const { error: attachError } = await admin.rpc('attach_chairperson', {
+      p_chama_id: chamaId,
+      p_user_id: invitedUserId,
+    });
+    if (attachError) console.error('Could not attach chairperson', attachError.message);
+  }
+
+  if (inviteFailure) {
+    return page(
+      'Approved, but the invite did not send',
+      `${escapeHtml(chamaName)} is active, but we could not email ` +
+        `${escapeHtml(contactEmail)} (${escapeHtml(inviteFailure)}). ` +
+        'They will need to be invited manually.',
+      false,
+    );
+  }
 
   return page(
     'Chama approved',
-    `${escapeHtml(chamaName)} is now active. ` +
-      (emailed
-        ? `${escapeHtml(contactEmail)} has been told it's live.`
-        : 'Let the chairperson know they can start using it.'),
+    `${escapeHtml(chamaName)} is now active, and ${escapeHtml(contactEmail)} has been ` +
+      'emailed an invitation to set their password and sign in.',
     true,
   );
 });

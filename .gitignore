@@ -55,5 +55,11 @@ app.*.map.json
 # Widget Preview related
 .widget_preview/
 
-# Environment / secrets — never commit real Supabase keys
+# Environment / secrets — never commit real Supabase keys.
+# NOTE: this repo is public. .env ships inside the APK as a Flutter asset,
+# so it must only ever hold the Supabase URL + anon key (both safe to
+# distribute, since RLS is what actually guards the data). Deploy-time
+# credentials — access tokens, API keys, the service-role key — belong in
+# .secrets/, which is never bundled and never committed.
 .env
+.secrets/

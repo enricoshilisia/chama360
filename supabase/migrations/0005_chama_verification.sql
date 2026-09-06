@@ -43,8 +43,16 @@ as $$
 $$;
 
 -- ============================================================
--- create_chama now takes the wizard's fields and starts life pending
+-- create_chama now takes the wizard's fields and starts life pending.
+--
+-- The old two-argument version must go, not just be superseded. Postgres
+-- overloads by signature, so it would survive alongside the new one — and
+-- because the new one defaults its extra arguments, a two-argument call
+-- becomes ambiguous and errors. Worse, anything reaching the old version
+-- creates a chama with no verification token: permanently unapprovable.
 -- ============================================================
+drop function if exists public.create_chama(text, text);
+
 create or replace function public.create_chama(
   p_name text,
   p_description text default null,

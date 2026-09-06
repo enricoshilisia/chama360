@@ -171,7 +171,8 @@ class _NewUserOnboarding extends StatelessWidget {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
             const SizedBox(height: 6),
             Text(
-              'You\'re not part of a chama yet. Join one with an invite code, or start your own.',
+              'You\'re not part of a chama yet. Join one with the invite code from '
+              'your chairperson.',
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.grey.shade600, height: 1.4),
             ),
@@ -182,15 +183,6 @@ class _NewUserOnboarding extends StatelessWidget {
                 onPressed: () => context.push('/chamas/join'),
                 icon: const Icon(Icons.person_add_alt_1_rounded),
                 label: const Text('Join a chama'),
-              ),
-            ),
-            const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () => context.push('/chamas/create'),
-                icon: const Icon(Icons.add_circle_outline_rounded),
-                label: const Text('Create your own'),
               ),
             ),
           ],

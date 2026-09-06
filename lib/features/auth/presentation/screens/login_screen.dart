@@ -231,9 +231,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
+                    // No self-serve signup: an account only comes from a
+                    // chama registration being approved, or from a
+                    // chairperson creating a login for a member.
                     TextButton(
-                      onPressed: () => context.push('/signup'),
-                      child: const Text("Don't have an account? Sign up"),
+                      onPressed: () => context.push('/register'),
+                      child: const Text('Want to run a chama? Register one'),
                     ),
                     const SizedBox(height: 12),
                   ],

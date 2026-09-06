@@ -23,6 +23,9 @@ class MyChamasScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Chamas'),
+        // Chamas aren't created from inside the app any more — they're
+        // registered publicly and approved. Joining an existing one with
+        // an invite code is all that's left here.
         actions: hasChama
             ? null
             : [
@@ -30,11 +33,6 @@ class MyChamasScreen extends ConsumerWidget {
                   icon: const Icon(Icons.person_add_alt_1_rounded),
                   tooltip: 'Join a chama',
                   onPressed: () => context.push('/chamas/join'),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.add_circle_outline_rounded),
-                  tooltip: 'Create a chama',
-                  onPressed: () => context.push('/chamas/create'),
                 ),
               ],
       ),
@@ -62,7 +60,7 @@ class MyChamasScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 6),
                   const Text(
-                    'Create one or join with an invite code.',
+                    'Join one with an invite code from your chairperson.',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: Colors.grey),
                   ),
@@ -71,12 +69,6 @@ class MyChamasScreen extends ConsumerWidget {
                     onPressed: () => context.push('/chamas/join'),
                     icon: const Icon(Icons.person_add_alt_1_rounded),
                     label: const Text('Join a chama'),
-                  ),
-                  const SizedBox(height: 10),
-                  OutlinedButton.icon(
-                    onPressed: () => context.push('/chamas/create'),
-                    icon: const Icon(Icons.add_circle_outline_rounded),
-                    label: const Text('Create your own'),
                   ),
                 ],
               );

@@ -48,21 +48,23 @@ class ChamaRepository {
     }
   }
 
-  /// Registers a chama. It is created in 'pending_verification' — usable
-  /// for nothing until the platform owner approves it (see
-  /// 0005_chama_verification.sql). Sending that approval email is a
-  /// best-effort follow-up: if the mail fails, the registration still
-  /// stands and can be approved directly, so we don't fail the whole
-  /// registration over it.
-  Future<String> registerChama({
-    required String name,
+  /// Submits an application to run a chama. Deliberately callable with no
+  /// account — nothing exists on the platform until the owner approves,
+  /// at which point the chama is created and Supabase invites the
+  /// chairperson to set a password (see 0006_gated_registration.sql).
+  ///
+  /// Emailing the owner is best-effort: the application is already stored,
+  /// so a mail failure shouldn't tell the applicant their submission
+  /// failed when it didn't.
+  Future<void> submitChamaRegistration({
+    required String chamaName,
     String? description,
     required String contactName,
     required String contactPhone,
     required String contactEmail,
   }) async {
-    final result = await _client.rpc('create_chama', params: {
-      'p_name': name,
+    final result = await _client.rpc('submit_chama_registration', params: {
+      'p_chama_name': chamaName,
       'p_description': description,
       'p_contact_name': contactName,
       'p_contact_phone': contactPhone,
@@ -70,18 +72,16 @@ class ChamaRepository {
     });
 
     final row = (result as List).first as Map<String, dynamic>;
-    final chamaId = row['chama_id'] as String;
+    final registrationId = row['registration_id'] as String;
 
     try {
       await _client.functions.invoke(
         'notify-chama-registration',
-        body: {'chama_id': chamaId},
+        body: {'registration_id': registrationId},
       );
     } catch (_) {
-      // Registration succeeded; only the notification didn't.
+      // Stored either way; only the notification didn't go out.
     }
-
-    return chamaId;
   }
 
   /// Creates a phone + temporary-password login for a member who doesn't

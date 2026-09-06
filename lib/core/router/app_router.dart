@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/providers/auth_providers.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
-import '../../features/auth/presentation/screens/signup_screen.dart';
 import '../../features/chama/presentation/screens/add_member_screen.dart';
 import '../../features/chama/presentation/screens/chama_detail_screen.dart';
 import '../../features/chama/presentation/screens/chama_members_screen.dart';
@@ -39,7 +38,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final loggedIn = authRepo.currentUser != null;
       final onAuthScreen =
-          state.matchedLocation == '/login' || state.matchedLocation == '/signup';
+          state.matchedLocation == '/login' || state.matchedLocation == '/register';
 
       if (!loggedIn && !onAuthScreen) return '/login';
       if (loggedIn && onAuthScreen) return '/home';
@@ -47,7 +46,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
-      GoRoute(path: '/signup', builder: (context, state) => const SignupScreen()),
+      // Registering a chama is deliberately reachable without an account:
+      // approval is what creates the account, not signing up. There is no
+      // self-serve signup route at all — see 0006_gated_registration.sql.
+      GoRoute(
+        path: '/register',
+        pageBuilder: (context, state) =>
+            fadeThroughPage(state: state, child: const RegisterChamaScreen()),
+      ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) => AppShell(
           currentIndex: navigationShell.currentIndex,
@@ -63,11 +69,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               path: '/chamas',
               builder: (context, state) => const MyChamasScreen(),
               routes: [
-                GoRoute(
-                  path: 'create',
-                  pageBuilder: (context, state) =>
-                      fadeThroughPage(state: state, child: const RegisterChamaScreen()),
-                ),
                 GoRoute(
                   path: 'join',
                   pageBuilder: (context, state) =>
