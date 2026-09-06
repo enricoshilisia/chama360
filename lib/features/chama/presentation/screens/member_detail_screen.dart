@@ -5,9 +5,11 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/constants/chama_roles.dart';
 import '../../../../core/theme/layout.dart';
 import '../../../../core/utils/currency.dart';
+import '../../../../core/utils/phone_identity.dart';
 import '../../../../core/widgets/glass_container.dart';
 import '../../../loans/domain/models/loan.dart';
 import '../../../loans/presentation/providers/loans_providers.dart';
+import '../../domain/models/chama_member.dart';
 import '../../domain/models/chama_transaction.dart';
 import '../providers/chama_providers.dart';
 
@@ -92,6 +94,13 @@ class MemberDetailScreen extends ConsumerWidget {
                     ],
                   ),
                 ),
+                if (!member.hasAccount &&
+                    chama != null &&
+                    ChamaRole.isAdmin(chama.role) &&
+                    chama.isActive) ...[
+                  const SizedBox(height: 14),
+                  _GiveLoginButton(chamaId: chamaId, member: member),
+                ],
                 if (memberLoans.isNotEmpty) ...[
                   const SizedBox(height: 20),
                   const Text('Loans', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
@@ -131,6 +140,156 @@ class MemberDetailScreen extends ConsumerWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// Turns a chairperson-managed member into one who can sign in themselves.
+/// The temporary password comes back exactly once — it is never stored
+/// anywhere readable, so if the chairperson loses it before passing it on,
+/// the only route is to reset it again.
+class _GiveLoginButton extends ConsumerStatefulWidget {
+  const _GiveLoginButton({required this.chamaId, required this.member});
+
+  final String chamaId;
+  final ChamaMember member;
+
+  @override
+  ConsumerState<_GiveLoginButton> createState() => _GiveLoginButtonState();
+}
+
+class _GiveLoginButtonState extends ConsumerState<_GiveLoginButton> {
+  bool _busy = false;
+
+  Future<void> _start() async {
+    final phoneCtrl = TextEditingController(text: widget.member.phone ?? '');
+    final phone = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Give this member a login'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${widget.member.displayName} will sign in with their phone number and a '
+              'temporary password you give them. They must change it straight away.',
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: phoneCtrl,
+              keyboardType: TextInputType.phone,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Phone number',
+                hintText: '07XX XXX XXX',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, phoneCtrl.text),
+            child: const Text('Create login'),
+          ),
+        ],
+      ),
+    );
+
+    if (phone == null || !PhoneIdentity.looksLikePhone(phone)) {
+      if (phone != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Enter a valid phone number')),
+        );
+      }
+      return;
+    }
+
+    setState(() => _busy = true);
+    try {
+      final result = await ref.read(chamaRepositoryProvider).createMemberLogin(
+            chamaId: widget.chamaId,
+            memberId: widget.member.id,
+            phone: phone,
+          );
+      ref.invalidate(chamaMembersProvider(widget.chamaId));
+      if (mounted) await _showCredentials(result.phone, result.temporaryPassword);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _showCredentials(String phone, String tempPassword) {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Login created'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Give these to ${widget.member.displayName}. '
+                'The password is shown only once.'),
+            const SizedBox(height: 16),
+            _CredentialRow(label: 'Phone', value: '+$phone'),
+            const SizedBox(height: 8),
+            _CredentialRow(label: 'Temporary password', value: tempPassword),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Done'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: _busy ? null : _start,
+      icon: _busy
+          ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+          : const Icon(Icons.key_outlined),
+      label: const Text('Give this member a login'),
+      style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+    );
+  }
+}
+
+class _CredentialRow extends StatelessWidget {
+  const _CredentialRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          Text(label, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+          const Spacer(),
+          SelectableText(value,
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+        ],
       ),
     );
   }

@@ -10,6 +10,7 @@ class Chama {
     required this.memberId,
     required this.role,
     required this.balance,
+    this.status = 'active',
   });
 
   final String id;
@@ -20,6 +21,13 @@ class Chama {
   final String memberId; // this user's chama_members.id
   final String role;
   final double balance;
+
+  /// pending_verification | active | rejected — a chama can be seen while
+  /// pending, but can't add members or record money until approved.
+  final String status;
+
+  bool get isActive => status == 'active';
+  bool get isPending => status == 'pending_verification';
 
   factory Chama.fromMemberJoin(Map<String, dynamic> row) {
     final chama = row['chamas'] as Map<String, dynamic>;
@@ -32,6 +40,7 @@ class Chama {
       memberId: row['id'] as String,
       role: row['role'] as String? ?? 'member',
       balance: (row['balance'] as num?)?.toDouble() ?? 0,
+      status: chama['status'] as String? ?? 'active',
     );
   }
 
@@ -43,6 +52,7 @@ class Chama {
         'currency': currency,
         'role': role,
         'balance': balance,
+        'status': status,
         'updated_at': DateTime.now().toIso8601String(),
       };
 
@@ -55,5 +65,6 @@ class Chama {
         memberId: '',
         role: row['role'] as String? ?? 'member',
         balance: (row['balance'] as num?)?.toDouble() ?? 0,
+        status: row['status'] as String? ?? 'active',
       );
 }

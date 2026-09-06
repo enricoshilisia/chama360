@@ -9,6 +9,7 @@ import 'core/theme/app_theme.dart';
 import 'core/theme/theme_mode_provider.dart';
 import 'features/auth/presentation/providers/auth_providers.dart';
 import 'features/auth/presentation/screens/app_lock_screen.dart';
+import 'features/auth/presentation/screens/set_credential_screen.dart';
 
 class ChamaApp extends ConsumerWidget {
   const ChamaApp({super.key});
@@ -37,12 +38,18 @@ class ChamaApp extends ConsumerWidget {
       // rather than folding it into go_router's redirect logic — it reacts
       // to isAppUnlockedProvider directly and doesn't need its own route.
       builder: (context, child) {
-        final loggedIn = ref.watch(currentUserProvider) != null;
+        final user = ref.watch(currentUserProvider);
+        final loggedIn = user != null;
         final biometricEnabled = ref.watch(biometricEnabledProvider).value ?? false;
         final unlocked = ref.watch(isAppUnlockedProvider);
 
         if (loggedIn && biometricEnabled && !unlocked) {
           return const AppLockScreen();
+        }
+        // A member still on the temporary password the chairperson gave
+        // them can't go anywhere else until they set their own.
+        if (loggedIn && user.userMetadata?['must_change_password'] == true) {
+          return const SetCredentialScreen();
         }
         return child ?? const SizedBox.shrink();
       },

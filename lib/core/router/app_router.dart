@@ -7,10 +7,10 @@ import '../../features/auth/presentation/screens/signup_screen.dart';
 import '../../features/chama/presentation/screens/add_member_screen.dart';
 import '../../features/chama/presentation/screens/chama_detail_screen.dart';
 import '../../features/chama/presentation/screens/chama_members_screen.dart';
-import '../../features/chama/presentation/screens/create_chama_screen.dart';
 import '../../features/chama/presentation/screens/join_chama_screen.dart';
 import '../../features/chama/presentation/screens/member_detail_screen.dart';
 import '../../features/chama/presentation/screens/my_chamas_screen.dart';
+import '../../features/chama/presentation/screens/register_chama_screen.dart';
 import '../../features/dashboard/presentation/screens/dashboard_screen.dart';
 import '../../features/loans/presentation/screens/loan_detail_screen.dart';
 import '../../features/loans/presentation/screens/loans_screen.dart';
@@ -66,7 +66,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 GoRoute(
                   path: 'create',
                   pageBuilder: (context, state) =>
-                      fadeThroughPage(state: state, child: const CreateChamaScreen()),
+                      fadeThroughPage(state: state, child: const RegisterChamaScreen()),
                 ),
                 GoRoute(
                   path: 'join',

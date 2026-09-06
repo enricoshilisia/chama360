@@ -128,7 +128,11 @@ class DashboardScreen extends ConsumerWidget {
               ),
               data: (chamas) {
                 if (chamas.isEmpty) return const _NewUserOnboarding();
-                return _ActiveHome(chamas: chamas);
+                final pending = chamas.where((c) => c.isPending).toList();
+                if (pending.length == chamas.length) {
+                  return _AwaitingApproval(chama: pending.first);
+                }
+                return _ActiveHome(chamas: chamas.where((c) => c.isActive).toList());
               },
             ),
           ),
@@ -188,6 +192,60 @@ class _NewUserOnboarding extends StatelessWidget {
                 icon: const Icon(Icons.add_circle_outline_rounded),
                 label: const Text('Create your own'),
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Registered but not yet approved. Nothing can be recorded yet, so there's
+/// nothing to show but the state of the request itself — saying so plainly
+/// beats an empty dashboard that looks broken.
+class _AwaitingApproval extends StatelessWidget {
+  const _AwaitingApproval({required this.chama});
+
+  final Chama chama;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, kShellBottomInset),
+      child: GlassContainer(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.orange.withValues(alpha: 0.14),
+              ),
+              child: const Icon(Icons.hourglass_top_rounded, size: 34, color: Colors.orange),
+            ),
+            const SizedBox(height: 18),
+            Text(chama.name,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 6),
+            Text(
+              'Your registration is with us for review. Once it\'s approved you\'ll be '
+              'able to add members and start recording contributions.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey.shade600, height: 1.4),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Text('Awaiting approval',
+                  style: TextStyle(
+                      color: Colors.orange, fontSize: 12, fontWeight: FontWeight.w700)),
             ),
           ],
         ),

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/services/biometric_providers.dart';
+import '../../../../core/utils/phone_identity.dart';
 import '../../../../core/widgets/glass_container.dart';
 import '../providers/auth_providers.dart';
 
@@ -17,14 +18,17 @@ class LoginScreen extends ConsumerStatefulWidget {
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   bool _loading = false;
   bool _obscure = true;
+  bool _usePhone = false;
   String? _error;
 
   @override
   void dispose() {
     _emailCtrl.dispose();
+    _phoneCtrl.dispose();
     _passwordCtrl.dispose();
     super.dispose();
   }
@@ -36,17 +40,30 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _error = null;
     });
     try {
-      await ref.read(authRepositoryProvider).signIn(
-            email: _emailCtrl.text.trim(),
-            password: _passwordCtrl.text,
-          );
+      final auth = ref.read(authRepositoryProvider);
+      if (_usePhone) {
+        await auth.signInWithPhone(
+          phone: _phoneCtrl.text,
+          password: _passwordCtrl.text,
+        );
+      } else {
+        await auth.signIn(
+          email: _emailCtrl.text.trim(),
+          password: _passwordCtrl.text,
+        );
+      }
       // Signing in with a password proves identity — no need to also
       // demand biometrics right after. The app-lock screen only kicks in
       // on a later cold start of an already-signed-in session.
       ref.read(isAppUnlockedProvider.notifier).state = true;
       // Navigation happens automatically via the router's auth listener.
     } on AuthException catch (e) {
-      setState(() => _error = e.message);
+      // Supabase reports a wrong synthetic-email lookup the same way it
+      // reports a wrong password, which would read as nonsense to someone
+      // who typed a phone number.
+      setState(() => _error = _usePhone && e.message.toLowerCase().contains('credential')
+          ? 'That phone number or password isn\'t right'
+          : e.message);
     } catch (e) {
       setState(() => _error = 'Something went wrong. Please try again.');
     } finally {
@@ -97,23 +114,60 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          TextFormField(
-                            controller: _emailCtrl,
-                            keyboardType: TextInputType.emailAddress,
-                            decoration: const InputDecoration(
-                              labelText: 'Email',
-                              prefixIcon: Icon(Icons.email_outlined),
-                            ),
-                            validator: (v) => (v == null || !v.contains('@'))
-                                ? 'Enter a valid email'
-                                : null,
+                          // Members get a phone-number login from their
+                          // chairperson; chairpersons register with email.
+                          SegmentedButton<bool>(
+                            segments: const [
+                              ButtonSegment(
+                                value: false,
+                                icon: Icon(Icons.email_outlined, size: 18),
+                                label: Text('Email'),
+                              ),
+                              ButtonSegment(
+                                value: true,
+                                icon: Icon(Icons.phone_outlined, size: 18),
+                                label: Text('Phone'),
+                              ),
+                            ],
+                            selected: {_usePhone},
+                            onSelectionChanged: (s) => setState(() {
+                              _usePhone = s.first;
+                              _error = null;
+                            }),
+                            showSelectedIcon: false,
                           ),
+                          const SizedBox(height: 16),
+                          if (_usePhone)
+                            TextFormField(
+                              controller: _phoneCtrl,
+                              keyboardType: TextInputType.phone,
+                              decoration: const InputDecoration(
+                                labelText: 'Phone number',
+                                hintText: '07XX XXX XXX',
+                                prefixIcon: Icon(Icons.phone_outlined),
+                              ),
+                              validator: (v) => PhoneIdentity.looksLikePhone(v ?? '')
+                                  ? null
+                                  : 'Enter a valid phone number',
+                            )
+                          else
+                            TextFormField(
+                              controller: _emailCtrl,
+                              keyboardType: TextInputType.emailAddress,
+                              decoration: const InputDecoration(
+                                labelText: 'Email',
+                                prefixIcon: Icon(Icons.email_outlined),
+                              ),
+                              validator: (v) => (v == null || !v.contains('@'))
+                                  ? 'Enter a valid email'
+                                  : null,
+                            ),
                           const SizedBox(height: 14),
                           TextFormField(
                             controller: _passwordCtrl,
                             obscureText: _obscure,
                             decoration: InputDecoration(
-                              labelText: 'Password',
+                              labelText: _usePhone ? 'Password or PIN' : 'Password',
                               prefixIcon: const Icon(Icons.lock_outline),
                               suffixIcon: IconButton(
                                 icon: Icon(_obscure
@@ -122,28 +176,37 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 onPressed: () => setState(() => _obscure = !_obscure),
                               ),
                             ),
-                            validator: (v) => (v == null || v.length < 6)
-                                ? 'At least 6 characters'
-                                : null,
+                            validator: (v) =>
+                                (v == null || v.isEmpty) ? 'Enter your password or PIN' : null,
                           ),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton(
-                              onPressed: () async {
-                                if (_emailCtrl.text.trim().isEmpty) return;
-                                await ref
-                                    .read(authRepositoryProvider)
-                                    .resetPassword(_emailCtrl.text.trim());
-                                if (mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                        content: Text('Password reset email sent.')),
-                                  );
-                                }
-                              },
-                              child: const Text('Forgot password?'),
+                          if (!_usePhone)
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton(
+                                onPressed: () async {
+                                  if (_emailCtrl.text.trim().isEmpty) return;
+                                  await ref
+                                      .read(authRepositoryProvider)
+                                      .resetPassword(_emailCtrl.text.trim());
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                          content: Text('Password reset email sent.')),
+                                    );
+                                  }
+                                },
+                                child: const Text('Forgot password?'),
+                              ),
                             ),
-                          ),
+                          if (_usePhone)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Text(
+                                'Forgot it? Ask your chairperson to reset your login.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                              ),
+                            ),
                           if (_error != null) ...[
                             const SizedBox(height: 4),
                             Text(_error!,

@@ -48,15 +48,63 @@ class ChamaRepository {
     }
   }
 
-  Future<String> createChama({
+  /// Registers a chama. It is created in 'pending_verification' — usable
+  /// for nothing until the platform owner approves it (see
+  /// 0005_chama_verification.sql). Sending that approval email is a
+  /// best-effort follow-up: if the mail fails, the registration still
+  /// stands and can be approved directly, so we don't fail the whole
+  /// registration over it.
+  Future<String> registerChama({
     required String name,
     String? description,
+    required String contactName,
+    required String contactPhone,
+    required String contactEmail,
   }) async {
     final result = await _client.rpc('create_chama', params: {
       'p_name': name,
       'p_description': description,
+      'p_contact_name': contactName,
+      'p_contact_phone': contactPhone,
+      'p_contact_email': contactEmail,
     });
-    return result as String;
+
+    final row = (result as List).first as Map<String, dynamic>;
+    final chamaId = row['chama_id'] as String;
+
+    try {
+      await _client.functions.invoke(
+        'notify-chama-registration',
+        body: {'chama_id': chamaId},
+      );
+    } catch (_) {
+      // Registration succeeded; only the notification didn't.
+    }
+
+    return chamaId;
+  }
+
+  /// Creates a phone + temporary-password login for a member who doesn't
+  /// have one. Returns the temporary password once, for the chairperson to
+  /// pass on — it is never stored anywhere readable.
+  Future<({String phone, String temporaryPassword})> createMemberLogin({
+    required String chamaId,
+    required String memberId,
+    required String phone,
+  }) async {
+    final response = await _client.functions.invoke(
+      'create-member-login',
+      body: {'chama_id': chamaId, 'member_id': memberId, 'phone': phone},
+    );
+
+    final data = response.data as Map<String, dynamic>;
+    if (data['error'] != null) {
+      throw Exception(data['error'] as String);
+    }
+    return (
+      phone: data['phone'] as String,
+      temporaryPassword: data['temporary_password'] as String,
+    );
   }
 
   Future<String> joinChamaByCode(String inviteCode) async {
