@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/utils/error_message.dart';
 import '../../../../core/utils/phone_identity.dart';
 import '../../../../core/widgets/glass_container.dart';
+import '../../../../core/widgets/illustrated_header.dart';
 import '../providers/chama_providers.dart';
 
 /// Registering a chama is deliberately not a one-field form. It collects
@@ -119,6 +120,7 @@ class _RegisterChamaScreenState extends ConsumerState<RegisterChamaScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const _StepHeading(
+            icon: Icons.groups_rounded,
             title: 'About the chama',
             subtitle: 'What is the group called, and what is it for?',
           ),
@@ -157,6 +159,7 @@ class _RegisterChamaScreenState extends ConsumerState<RegisterChamaScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const _StepHeading(
+            icon: Icons.badge_outlined,
             title: 'Who runs it',
             subtitle: 'The chairperson\'s details. We use these to verify the '
                 'registration before the chama goes live.',
@@ -208,6 +211,7 @@ class _RegisterChamaScreenState extends ConsumerState<RegisterChamaScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const _StepHeading(
+          icon: Icons.fact_check_outlined,
           title: 'Review and submit',
           subtitle: 'Check this over before sending it for approval.',
         ),
@@ -288,16 +292,7 @@ class _SubmittedScreen extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(
-                      width: 68,
-                      height: 68,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.14),
-                      ),
-                      child: Icon(Icons.mark_email_read_outlined,
-                          size: 32, color: Theme.of(context).colorScheme.primary),
-                    ),
+                    const IllustratedHeader(icon: Icons.mark_email_read_outlined),
                     const SizedBox(height: 20),
                     const Text('Registration received',
                         textAlign: TextAlign.center,
@@ -370,20 +365,25 @@ class _StepIndicator extends StatelessWidget {
 }
 
 class _StepHeading extends StatelessWidget {
-  const _StepHeading({required this.title, required this.subtitle});
+  const _StepHeading({required this.title, required this.subtitle, required this.icon});
 
   final String title;
   final String subtitle;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-        const SizedBox(height: 6),
+        Center(child: IllustratedHeader(icon: icon)),
+        const SizedBox(height: 20),
+        Text(title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 8),
         Text(subtitle,
-            style: TextStyle(color: Colors.grey.shade600, height: 1.4, fontSize: 13.5)),
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey.shade600, height: 1.45, fontSize: 14)),
       ],
     );
   }

@@ -95,9 +95,22 @@ Deno.serve(async (req) => {
   let invitedUserId: string | null = null;
   let inviteFailure: string | null = null;
 
+  // redirectTo is a custom scheme, so tapping the invite reopens the app
+  // rather than a web page — supabase_flutter reads the tokens off the
+  // link and signs them in. must_change_password sends them straight to
+  // the set-a-password screen, since an invited account has none yet.
+  const redirectTo = Deno.env.get('AUTH_REDIRECT_URL') ?? 'com.enrico.chama360://auth/callback';
+
   const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(
     contactEmail,
-    { data: { full_name: contactName, role: 'chairperson' } },
+    {
+      redirectTo,
+      data: {
+        full_name: contactName,
+        role: 'chairperson',
+        must_change_password: true,
+      },
+    },
   );
 
   if (inviteError) {

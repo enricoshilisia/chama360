@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/services/biometric_providers.dart';
 import '../../../../core/utils/credential_validator.dart';
 import '../../../../core/widgets/glass_container.dart';
 import '../providers/auth_providers.dart';
@@ -41,7 +42,14 @@ class _SetCredentialScreenState extends ConsumerState<SetCredentialScreen> {
     try {
       await ref.read(authRepositoryProvider).setNewCredential(_newCtrl.text);
       // The must_change_password flag is cleared as part of that call, which
-      // drops this screen automatically.
+      // drops this screen automatically. Offer biometrics on the way out —
+      // they've just typed a credential, so the pitch lands better here
+      // than buried in settings later.
+      final supported = await ref.read(biometricServiceProvider).isDeviceSupported();
+      final alreadyOn = ref.read(biometricEnabledProvider).value ?? false;
+      if (supported && !alreadyOn) {
+        ref.read(offerBiometricSetupProvider.notifier).state = true;
+      }
     } on AuthException catch (e) {
       setState(() => _error = e.message);
     } catch (e) {

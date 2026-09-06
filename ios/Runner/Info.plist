@@ -28,6 +28,21 @@
 	<true/>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Use Face ID to sign in to Chama360 quickly and securely.</string>
+	<!-- Matches the Android intent-filter: Supabase auth redirects (invite
+	     links, password recovery) reopen the app instead of a web page. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.enrico.chama360</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.enrico.chama360</string>
+			</array>
+		</dict>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

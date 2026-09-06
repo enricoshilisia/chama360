@@ -15,6 +15,12 @@ final biometricServiceProvider = Provider<BiometricService>((ref) {
 /// (LoginScreen), since typing your password already proves identity.
 final isAppUnlockedProvider = StateProvider<bool>((ref) => false);
 
+/// Set the moment someone finishes choosing their password/PIN, so the
+/// app can offer biometric unlock once — right when they've just proved
+/// they can be bothered to type a credential. Cleared whether they enable
+/// it or skip; it is never asked again unprompted.
+final offerBiometricSetupProvider = StateProvider<bool>((ref) => false);
+
 final biometricSupportedProvider = FutureProvider<bool>((ref) {
   return ref.watch(biometricServiceProvider).isDeviceSupported();
 });

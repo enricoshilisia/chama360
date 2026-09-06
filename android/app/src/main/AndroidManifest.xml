@@ -26,6 +26,19 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- Supabase auth redirects (invite links, password recovery)
+                 come back to the app through this scheme rather than a web
+                 page. supabase_flutter picks the tokens off the incoming
+                 link and establishes the session automatically.
+                 A custom scheme only resolves if the app is installed —
+                 acceptable here, since an invite is only sent to someone
+                 who is about to use the app. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="com.enrico.chama360" android:host="auth"/>
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->

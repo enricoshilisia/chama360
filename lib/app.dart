@@ -9,6 +9,7 @@ import 'core/theme/app_theme.dart';
 import 'core/theme/theme_mode_provider.dart';
 import 'features/auth/presentation/providers/auth_providers.dart';
 import 'features/auth/presentation/screens/app_lock_screen.dart';
+import 'features/auth/presentation/screens/biometric_setup_screen.dart';
 import 'features/auth/presentation/screens/set_credential_screen.dart';
 
 class ChamaApp extends ConsumerWidget {
@@ -50,6 +51,10 @@ class ChamaApp extends ConsumerWidget {
         // them can't go anywhere else until they set their own.
         if (loggedIn && user.userMetadata?['must_change_password'] == true) {
           return const SetCredentialScreen();
+        }
+        // Offered once, straight after that — skippable.
+        if (loggedIn && ref.watch(offerBiometricSetupProvider)) {
+          return const BiometricSetupScreen();
         }
         return child ?? const SizedBox.shrink();
       },
