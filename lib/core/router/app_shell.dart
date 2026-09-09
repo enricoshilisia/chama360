@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -32,9 +33,12 @@ class AppShell extends ConsumerWidget {
       // Back from a tab root used to drop straight out of the app, leaving
       // the session unlocked behind it. Now it locks first and then leaves,
       // so the next launch starts at the biometric prompt.
-      canPop: false,
+      //
+      // Not on web: there is no lock there (biometrics are unavailable),
+      // and swallowing back would trap people in the PWA with no way out.
+      canPop: kIsWeb,
       onPopInvokedWithResult: (didPop, _) {
-        if (didPop) return;
+        if (didPop || kIsWeb) return;
         lockApp(ref);
       },
       child: _shell(context),

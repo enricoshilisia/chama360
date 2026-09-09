@@ -4,6 +4,10 @@
 Release build for arm64 devices — covers virtually every phone from the last several years.
 Enable "install from unknown sources" for whichever app you download it through.
 
+🌐 **[Open the web app / install on iPhone](https://enricoshilisia.github.io/chama360/)**
+On iPhone: open that link in **Safari** (not Chrome), tap Share, then
+"Add to Home Screen". It then opens fullscreen like an installed app.
+
 Flutter + Supabase chama (savings group) app. No Django, no VPS — Supabase is
 the entire backend (Postgres, auth, realtime, storage), Flutter is the only
 client. See `supabase/migrations/` for the full schema and business logic
@@ -118,3 +122,23 @@ regenerate that file, redo that change.
 - iOS build: once Android is verified, `flutter build ios` from a Mac with
   Xcode, plus enabling `NSFaceIDUsageDescription` in `Info.plist` for
   biometrics.
+
+## Deploying the PWA
+
+The web build is served from the `gh-pages` branch by GitHub Pages, which
+gives it the HTTPS that iOS requires before it will offer "Add to Home
+Screen" at all.
+
+```bash
+flutter build web --release --base-href /chama360/   # base href is the repo path, not /
+# copy build/web to a clean checkout of gh-pages, add .nojekyll, push
+```
+
+`.nojekyll` matters: without it GitHub runs Jekyll, which silently skips
+files and directories beginning with an underscore — and Flutter emits
+several.
+
+Supabase's `site_url` points at this deployment, so invite and
+password-recovery links open the web app. That is deliberate: an iPhone has
+no installed app for a `com.enrico.chama360://` link to open, and the web
+page works for Android users too.

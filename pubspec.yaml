@@ -90,6 +90,13 @@ flutter_launcher_icons:
   adaptive_icon_background: "#FFFFFF"
   adaptive_icon_foreground: "assets/icon/app_icon.png"
   min_sdk_android: 21
+  # The PWA installs on iPhone from Safari, where the home-screen icon
+  # comes from these rather than from the Android/iOS app icons above.
+  web:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
+    background_color: "#F3F8F3"
+    theme_color: "#4E9950"
 
   # To add assets to your application, add an assets section, like this:
   # assets:
