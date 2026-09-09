@@ -10,9 +10,17 @@ import '../../domain/models/chama_member.dart';
 import '../providers/chama_providers.dart';
 
 class ChamaMembersScreen extends ConsumerWidget {
-  const ChamaMembersScreen({super.key, required this.chamaId});
+  const ChamaMembersScreen({
+    super.key,
+    required this.chamaId,
+    this.embedded = false,
+  });
 
   final String chamaId;
+
+  /// True when shown as the Members tab, which already sits under the
+  /// shell's top bar — a second AppBar there would stack two headers.
+  final bool embedded;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -22,7 +30,8 @@ class ChamaMembersScreen extends ConsumerWidget {
     final myUserId = ref.watch(currentUserProvider)?.id;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Members')),
+      backgroundColor: embedded ? Colors.transparent : null,
+      appBar: embedded ? null : AppBar(title: const Text('Members')),
       floatingActionButton: isAdmin
           ? Padding(
               padding: const EdgeInsets.only(bottom: kFabBottomInset),

@@ -107,6 +107,28 @@ class ChamaRepository {
     );
   }
 
+  /// Issues a fresh temporary password for a member who already has a
+  /// login — the "they forgot it" path. Returns it once, for the
+  /// chairperson to pass on; the member must replace it on next sign-in.
+  Future<({String memberName, String temporaryPassword})> resetMemberPassword({
+    required String chamaId,
+    required String memberId,
+  }) async {
+    final response = await _client.functions.invoke(
+      'reset-member-password',
+      body: {'chama_id': chamaId, 'member_id': memberId},
+    );
+
+    final data = response.data as Map<String, dynamic>;
+    if (data['error'] != null) {
+      throw Exception(data['error'] as String);
+    }
+    return (
+      memberName: data['member_name'] as String? ?? 'Member',
+      temporaryPassword: data['temporary_password'] as String,
+    );
+  }
+
   Future<String> joinChamaByCode(String inviteCode) async {
     final result = await _client.rpc('join_chama_by_code', params: {
       'p_invite_code': inviteCode.trim().toUpperCase(),

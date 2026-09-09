@@ -8,7 +8,7 @@ import '../../features/chama/presentation/screens/chama_detail_screen.dart';
 import '../../features/chama/presentation/screens/chama_members_screen.dart';
 import '../../features/chama/presentation/screens/join_chama_screen.dart';
 import '../../features/chama/presentation/screens/member_detail_screen.dart';
-import '../../features/chama/presentation/screens/my_chamas_screen.dart';
+import '../../features/chama/presentation/screens/members_tab_screen.dart';
 import '../../features/chama/presentation/screens/register_chama_screen.dart';
 import '../../features/dashboard/presentation/screens/dashboard_screen.dart';
 import '../../features/loans/presentation/screens/loan_detail_screen.dart';
@@ -65,9 +65,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             GoRoute(path: '/home', builder: (context, state) => const DashboardScreen()),
           ]),
           StatefulShellBranch(routes: [
+            // The tab shows the current chama's roster; /chamas keeps its
+            // deeper routes so every existing link still resolves.
             GoRoute(
               path: '/chamas',
-              builder: (context, state) => const MyChamasScreen(),
+              builder: (context, state) => const MembersTabScreen(),
               routes: [
                 GoRoute(
                   path: 'join',

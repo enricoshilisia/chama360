@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/services/biometric_providers.dart';
 import '../../../../core/theme/layout.dart';
+import '../../../../core/utils/display_name.dart';
 import '../../../../core/theme/theme_mode_provider.dart';
 import '../../../../core/widgets/glass_container.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
@@ -18,18 +20,25 @@ class ProfileScreen extends ConsumerWidget {
     final biometricEnabled = ref.watch(biometricEnabledProvider).value ?? false;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
+      // No AppBar: the shell's top bar already sits above this tab, and a
+      // second header would stack two titles.
+      backgroundColor: Colors.transparent,
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, kShellBottomInset),
+        padding: const EdgeInsets.fromLTRB(16, 18, 16, kShellBottomInset),
         children: [
+          const Padding(
+            padding: EdgeInsets.only(left: 4, bottom: 14),
+            child: Text('Profile',
+                style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800)),
+          ),
           GlassContainer(
             child: Row(
               children: [
                 CircleAvatar(
                   radius: 28,
                   child: Text(
-                    (user?.email ?? '?').substring(0, 1).toUpperCase(),
-                    style: const TextStyle(fontSize: 22),
+                    initialsFor(displayNameFor(user)),
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -38,9 +47,7 @@ class ProfileScreen extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        (user?.userMetadata?['full_name'] as String?) ??
-                            user?.email ??
-                            'Member',
+                        displayNameFor(user),
                         style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
                       ),
                       const SizedBox(height: 2),
@@ -74,6 +81,20 @@ class ProfileScreen extends ConsumerWidget {
                   ),
                 ],
               ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          const _SectionLabel('Chamas'),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.add_circle_outline_rounded),
+              title: const Text('Register another chama'),
+              subtitle: const Text(
+                'Goes through the same approval as your first one',
+                style: TextStyle(fontSize: 12),
+              ),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => context.push('/register'),
             ),
           ),
           const SizedBox(height: 20),

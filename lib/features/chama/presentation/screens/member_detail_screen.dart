@@ -94,12 +94,12 @@ class MemberDetailScreen extends ConsumerWidget {
                     ],
                   ),
                 ),
-                if (!member.hasAccount &&
-                    chama != null &&
-                    ChamaRole.isAdmin(chama.role) &&
-                    chama.isActive) ...[
+                if (chama != null && ChamaRole.isAdmin(chama.role) && chama.isActive) ...[
                   const SizedBox(height: 14),
-                  _GiveLoginButton(chamaId: chamaId, member: member),
+                  if (!member.hasAccount)
+                    _GiveLoginButton(chamaId: chamaId, member: member)
+                  else
+                    _ResetPasswordButton(chamaId: chamaId, member: member),
                 ],
                 if (memberLoans.isNotEmpty) ...[
                   const SizedBox(height: 20),
@@ -330,6 +330,102 @@ class _HistoryTile extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+
+/// Reissues a member's password when they've forgotten it. Same one-shot
+/// disclosure as handing out the first one: the chairperson reads it out,
+/// and it stops working the moment the member sets their own.
+class _ResetPasswordButton extends ConsumerStatefulWidget {
+  const _ResetPasswordButton({required this.chamaId, required this.member});
+
+  final String chamaId;
+  final ChamaMember member;
+
+  @override
+  ConsumerState<_ResetPasswordButton> createState() => _ResetPasswordButtonState();
+}
+
+class _ResetPasswordButtonState extends ConsumerState<_ResetPasswordButton> {
+  bool _busy = false;
+
+  Future<void> _reset() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reset password?'),
+        content: Text(
+          '${widget.member.displayName} will be given a new temporary password. '
+          'Their current one stops working immediately.',
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Reset')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    setState(() => _busy = true);
+    try {
+      final result = await ref.read(chamaRepositoryProvider).resetMemberPassword(
+            chamaId: widget.chamaId,
+            memberId: widget.member.id,
+          );
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          title: const Text('New password ready'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Give this to ${result.memberName}. '
+                  'It is shown only once, and they must change it when they sign in.'),
+              const SizedBox(height: 16),
+              if ((widget.member.phone ?? '').isNotEmpty) ...[
+                _CredentialRow(label: 'Phone', value: '+${widget.member.phone}'),
+                const SizedBox(height: 8),
+              ],
+              _CredentialRow(
+                  label: 'Temporary password', value: result.temporaryPassword),
+            ],
+          ),
+          actions: [
+            ElevatedButton(
+                onPressed: () => Navigator.pop(context), child: const Text('Done')),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: _busy ? null : _reset,
+      icon: _busy
+          ? const SizedBox(
+              height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+          : const Icon(Icons.lock_reset_rounded),
+      label: const Text('Reset password'),
+      style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
     );
   }
 }

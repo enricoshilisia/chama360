@@ -14,32 +14,46 @@ class NotificationsScreen extends ConsumerWidget {
     final notifsAsync = ref.watch(notificationsStreamProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Notifications'),
-        actions: [
-          TextButton(
-            onPressed: () =>
-                ref.read(notificationsRepositoryProvider).markAllRead(),
-            child: const Text('Mark all read'),
+      // The shell's top bar is already overhead, so the title sits inline
+      // rather than in a second AppBar stacked beneath it.
+      backgroundColor: Colors.transparent,
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 8, 4),
+            child: Row(
+              children: [
+                const Text('Notifications',
+                    style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800)),
+                const Spacer(),
+                TextButton(
+                  onPressed: () =>
+                      ref.read(notificationsRepositoryProvider).markAllRead(),
+                  child: const Text('Mark all read'),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: notifsAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text('Error: $e')),
+              data: (notifs) {
+                if (notifs.isEmpty) {
+                  return Center(
+                    child: Text('No notifications yet',
+                        style: TextStyle(color: Colors.grey.shade600)),
+                  );
+                }
+                return ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, kShellBottomInset),
+                  itemCount: notifs.length,
+                  itemBuilder: (context, i) => _NotificationTile(notifs[i]),
+                );
+              },
+            ),
           ),
         ],
-      ),
-      body: notifsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
-        data: (notifs) {
-          if (notifs.isEmpty) {
-            return Center(
-              child: Text('No notifications yet',
-                  style: TextStyle(color: Colors.grey.shade600)),
-            );
-          }
-          return ListView.builder(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, kShellBottomInset),
-            itemCount: notifs.length,
-            itemBuilder: (context, i) => _NotificationTile(notifs[i]),
-          );
-        },
       ),
     );
   }

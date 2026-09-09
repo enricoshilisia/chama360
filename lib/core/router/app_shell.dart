@@ -2,11 +2,16 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+import '../widgets/app_top_bar.dart';
 import '../widgets/glass_container.dart';
 
-/// Bottom-nav shell wrapping the four main tabs. The nav bar itself is a
-/// frosted glass strip floating over the gradient backdrop, matching the
-/// rest of the app's glassmorphic language.
+/// The frame the whole signed-in app sits inside: brand and account above,
+/// navigation below, content between. Both bars are frosted strips floating
+/// over the gradient backdrop.
+///
+/// Because the top bar belongs to the shell rather than to each screen,
+/// individual screens don't declare their own AppBar for identity — they
+/// only add one when they need a title or a back arrow.
 class AppShell extends StatelessWidget {
   const AppShell({
     super.key,
@@ -23,6 +28,7 @@ class AppShell extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
+      appBar: const AppTopBar(),
       body: GradientBackdrop(child: child),
       bottomNavigationBar: ClipRRect(
         child: BackdropFilter(
@@ -51,10 +57,13 @@ class AppShell extends StatelessWidget {
                     selectedIcon: Icon(Icons.home_rounded),
                     label: 'Home',
                   ),
+                  // Members, not Chamas: you are inside one chama at a time
+                  // now, and switching between them belongs to the account
+                  // popup rather than a whole tab.
                   NavigationDestination(
-                    icon: Icon(Icons.groups_outlined),
-                    selectedIcon: Icon(Icons.groups_rounded),
-                    label: 'Chamas',
+                    icon: Icon(Icons.people_outline_rounded),
+                    selectedIcon: Icon(Icons.people_rounded),
+                    label: 'Members',
                   ),
                   NavigationDestination(
                     icon: Icon(Icons.notifications_outlined),

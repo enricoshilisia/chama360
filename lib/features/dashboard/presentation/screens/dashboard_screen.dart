@@ -1,143 +1,49 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/constants/chama_roles.dart';
 import '../../../../core/services/connectivity_service.dart';
 import '../../../../core/services/privacy_provider.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/layout.dart';
 import '../../../../core/utils/currency.dart';
+import '../../../../core/utils/display_name.dart';
 import '../../../../core/widgets/glass_container.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../chama/domain/models/chama.dart';
 import '../../../chama/domain/models/chama_transaction.dart';
 import '../../../chama/presentation/providers/chama_providers.dart';
-import '../../../notifications/presentation/providers/notifications_providers.dart';
+import '../../../chama/presentation/providers/current_chama_provider.dart';
+import '../../../chama/presentation/widgets/add_contribution_sheet.dart';
+import '../../../reports/presentation/providers/reports_providers.dart';
 import '../../../reports/presentation/widgets/chama_report_section.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
-  String _greeting() {
-    final hour = DateTime.now().hour;
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    return 'Good evening';
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(currentUserProvider);
     final chamasAsync = ref.watch(myChamasProvider);
-    final unread = ref.watch(unreadNotificationsCountProvider);
+    final current = ref.watch(currentChamaProvider);
 
-    final firstName = ((user?.userMetadata?['full_name'] as String?) ??
-            user?.email ??
-            'there')
-        .split(' ')
-        .first;
-
-    return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            pinned: true,
-            floating: true,
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            toolbarHeight: 72,
-            flexibleSpace: ClipRect(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                child: Container(
-                  color: Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.55),
-                ),
-              ),
-            ),
-            title: Row(
-              children: [
-                CircleAvatar(
-                  radius: 20,
-                  backgroundColor:
-                      Theme.of(context).colorScheme.primary.withValues(alpha: 0.18),
-                  child: Text(
-                    firstName.substring(0, 1).toUpperCase(),
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.primary,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(_greeting(),
-                          style: TextStyle(fontSize: 11.5, color: Colors.grey.shade500)),
-                      Text(firstName,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.notifications_none_rounded),
-                      onPressed: () => context.push('/notifications'),
-                    ),
-                    if (unread > 0)
-                      Positioned(
-                        right: 6,
-                        top: 6,
-                        child: Container(
-                          padding: const EdgeInsets.all(3),
-                          decoration: const BoxDecoration(
-                              color: Colors.red, shape: BoxShape.circle),
-                          constraints:
-                              const BoxConstraints(minWidth: 16, minHeight: 16),
-                          child: Text('$unread',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(color: Colors.white, fontSize: 10)),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          SliverToBoxAdapter(
-            child: chamasAsync.when(
-              loading: () => const Padding(
-                padding: EdgeInsets.only(top: 80),
-                child: Center(child: CircularProgressIndicator()),
-              ),
-              error: (e, _) => Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text('Error: $e'),
-              ),
-              data: (chamas) {
-                if (chamas.isEmpty) return const _NewUserOnboarding();
-                final pending = chamas.where((c) => c.isPending).toList();
-                if (pending.length == chamas.length) {
-                  return _AwaitingApproval(chama: pending.first);
-                }
-                return _ActiveHome(chamas: chamas.where((c) => c.isActive).toList());
-              },
-            ),
-          ),
-        ],
+    return chamasAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(
+        child: Padding(padding: const EdgeInsets.all(24), child: Text('Error: $e')),
       ),
+      data: (chamas) {
+        if (chamas.isEmpty) {
+          return const SingleChildScrollView(child: _NewUserOnboarding());
+        }
+        // One chama at a time. Which one is the account popup's business,
+        // not this screen's — it renders whatever is current.
+        final chama = current ?? chamas.first;
+        if (chama.isPending) {
+          return SingleChildScrollView(child: _AwaitingApproval(chama: chama));
+        }
+        return _ActiveHome(chama: chama);
+      },
     );
   }
 }
@@ -246,85 +152,173 @@ class _AwaitingApproval extends StatelessWidget {
   }
 }
 
-/// Existing member(s): the balance overview plus a real activity feed.
-/// Creating/joining another chama lives on the Chamas tab from here on —
-/// this screen is about what's happening, not account setup.
+/// The chama you are currently in: what it holds, what just happened, and
+/// how it is doing. Switching chama swaps this whole screen, which is why
+/// nothing here aggregates across several.
 class _ActiveHome extends ConsumerWidget {
-  const _ActiveHome({required this.chamas});
+  const _ActiveHome({required this.chama});
 
-  final List<Chama> chamas;
+  final Chama chama;
+
+  String _greeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isOnline = ref.watch(isOnlineProvider);
     final balanceVisible = ref.watch(balanceVisibleProvider);
-    final total = chamas.fold<double>(0, (sum, c) => sum + c.balance);
-    final activityAsync = ref.watch(recentActivityProvider);
-    final chamaNames = {for (final c in chamas) c.id: c.name};
+    final activityAsync = ref.watch(chamaTransactionsProvider(chama.id));
+    final firstName = displayNameFor(ref.watch(currentUserProvider)).split(' ').first;
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, kShellBottomInset),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (!isOnline) ...[
-            const _OfflinePill(),
-            const SizedBox(height: 12),
-          ],
-          _HeroBalanceCard(
-            total: total,
-            chamaCount: chamas.length,
-            visible: balanceVisible,
-            onToggleVisible: () =>
-                ref.read(balanceVisibleProvider.notifier).state = !balanceVisible,
-          ),
-          const SizedBox(height: 26),
-          Text('Recent activity',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
-          const SizedBox(height: 10),
-          activityAsync.when(
-            loading: () => const Padding(
-              padding: EdgeInsets.symmetric(vertical: 24),
-              child: Center(child: CircularProgressIndicator()),
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.invalidate(myChamasProvider);
+        ref.invalidate(chamaTransactionsProvider(chama.id));
+        ref.invalidate(chamaReportProvider(chama.id));
+      },
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, kShellBottomInset),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('${_greeting()}, $firstName',
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+            const SizedBox(height: 2),
+            Text(chama.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 16),
+            if (!isOnline) ...[
+              const _OfflinePill(),
+              const SizedBox(height: 12),
+            ],
+            _HeroBalanceCard(
+              total: chama.balance,
+              chamaCount: 1,
+              visible: balanceVisible,
+              onToggleVisible: () =>
+                  ref.read(balanceVisibleProvider.notifier).state = !balanceVisible,
             ),
-            error: (e, _) => Text('Could not load activity: $e'),
-            data: (activity) {
-              if (activity.isEmpty) {
-                return GlassContainer(
-                  child: Text('No activity yet — record a contribution to get started.',
-                      style: TextStyle(color: Colors.grey.shade600)),
+            const SizedBox(height: 18),
+            _QuickActions(chama: chama),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Recent activity',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w800)),
+                TextButton(
+                  onPressed: () => context.push('/chamas/${chama.id}'),
+                  child: const Text('See all'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            activityAsync.when(
+              loading: () => const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (e, _) => Text('Could not load activity: $e'),
+              data: (activity) {
+                if (activity.isEmpty) {
+                  return GlassContainer(
+                    child: Text('No activity yet — record a contribution to get started.',
+                        style: TextStyle(color: Colors.grey.shade600)),
+                  );
+                }
+                return Column(
+                  children: [
+                    for (final txn in activity.take(6))
+                      _ActivityTile(
+                        txn: txn,
+                        chamaName: chama.name,
+                        visible: balanceVisible,
+                        onTap: () => txn.memberId == null
+                            ? context.push('/chamas/${chama.id}')
+                            : context.push('/chamas/${chama.id}/members/${txn.memberId}'),
+                      ),
+                  ],
                 );
-              }
-              return Column(
-                children: [
-                  for (final txn in activity)
-                    _ActivityTile(
-                      txn: txn,
-                      chamaName: chamaNames[txn.chamaId] ?? 'Chama',
-                      visible: balanceVisible,
-                      onTap: () => txn.memberId == null
-                          ? context.push('/chamas/${txn.chamaId}')
-                          : context.push('/chamas/${txn.chamaId}/members/${txn.memberId}'),
-                    ),
-                ],
-              );
-            },
+              },
+            ),
+            const SizedBox(height: 26),
+            ChamaReportSection(chamaId: chama.id, visible: balanceVisible),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The two things a chairperson opens the app to do. Members sit one tap
+/// away in the nav bar, so they are deliberately not repeated here.
+class _QuickActions extends ConsumerWidget {
+  const _QuickActions({required this.chama});
+
+  final Chama chama;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final canRecord = ChamaRole.isAdmin(chama.role);
+    return Row(
+      children: [
+        if (canRecord) ...[
+          Expanded(
+            child: _ActionChip(
+              icon: Icons.add_rounded,
+              label: 'Contribution',
+              onTap: () => showAddContributionSheet(context, chamaId: chama.id),
+            ),
           ),
-          if (chamas.length > 1) ...[
-            const SizedBox(height: 26),
-            Text('Your chamas',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w800)),
-            const SizedBox(height: 10),
-            _ChamaCarousel(chamas: chamas, visible: balanceVisible),
-          ],
-          if (chamas.isNotEmpty) ...[
-            const SizedBox(height: 26),
-            ChamaReportSection(chamaId: chamas.first.id, visible: balanceVisible),
-          ],
+          const SizedBox(width: 10),
         ],
+        Expanded(
+          child: _ActionChip(
+            icon: Icons.request_quote_outlined,
+            label: 'Loans',
+            onTap: () => context.push('/chamas/${chama.id}/loans'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ActionChip extends StatelessWidget {
+  const _ActionChip({required this.icon, required this.label, required this.onTap});
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: GlassContainer(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+        borderRadius: 16,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 18, color: primary),
+            const SizedBox(width: 8),
+            Text(label,
+                style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700)),
+          ],
+        ),
       ),
     );
   }
@@ -520,85 +514,6 @@ class _ActivityTile extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _ChamaCarousel extends StatelessWidget {
-  const _ChamaCarousel({required this.chamas, required this.visible});
-
-  final List<Chama> chamas;
-  final bool visible;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 150,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: chamas.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 12),
-        itemBuilder: (context, i) {
-          final chama = chamas[i];
-          return InkWell(
-            borderRadius: BorderRadius.circular(22),
-            onTap: () => context.push('/chamas/${chama.id}'),
-            child: SizedBox(
-              width: 240,
-              child: GlassContainer(
-                borderRadius: 22,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .primary
-                                .withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Icon(Icons.groups_rounded,
-                              size: 18, color: Theme.of(context).colorScheme.primary),
-                        ),
-                        const Spacer(),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(chama.role,
-                              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600)),
-                        ),
-                      ],
-                    ),
-                    const Spacer(),
-                    Text(chama.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 4),
-                    Text(
-                        visible
-                            ? formatMoney(chama.balance, currency: chama.currency)
-                            : '••••••',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          color: Theme.of(context).colorScheme.primary,
-                        )),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
       ),
     );
   }
