@@ -17,6 +17,7 @@ import '../../features/loans/presentation/screens/record_loan_screen.dart';
 import '../../features/loans/presentation/screens/request_loan_screen.dart';
 import '../../features/notifications/presentation/screens/notifications_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
+import '../../features/reports/presentation/screens/chama_report_screen.dart';
 import 'app_shell.dart';
 import 'go_router_refresh_stream.dart';
 import 'transitions.dart';
@@ -37,11 +38,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     refreshListenable: GoRouterRefreshStream(authRepo.authStateChanges),
     redirect: (context, state) {
       final loggedIn = authRepo.currentUser != null;
-      final onAuthScreen =
-          state.matchedLocation == '/login' || state.matchedLocation == '/register';
+      final location = state.matchedLocation;
 
-      if (!loggedIn && !onAuthScreen) return '/login';
-      if (loggedIn && onAuthScreen) return '/home';
+      // Registering a chama is reachable either way: signed out because
+      // approval is what creates the account, and signed in because an
+      // existing chairperson can apply to run a second one. Bouncing it
+      // back to /home when signed in is what made the Profile entry
+      // silently do nothing.
+      const alwaysAllowed = {'/register'};
+
+      if (!loggedIn && location != '/login' && !alwaysAllowed.contains(location)) {
+        return '/login';
+      }
+      if (loggedIn && location == '/login') return '/home';
       return null;
     },
     routes: [
@@ -108,6 +117,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                           ),
                         ),
                       ],
+                    ),
+                    GoRoute(
+                      path: 'reports',
+                      pageBuilder: (context, state) => fadeThroughPage(
+                        state: state,
+                        child: ChamaReportScreen(chamaId: state.pathParameters['id']!),
+                      ),
                     ),
                     GoRoute(
                       path: 'loans',

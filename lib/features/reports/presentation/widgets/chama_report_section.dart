@@ -1,6 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/services/privacy_provider.dart';
@@ -28,9 +29,21 @@ class ChamaReportSection extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Chama report',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
-        const SizedBox(height: 10),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Chama report',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w800)),
+            TextButton(
+              onPressed: () => context.push('/chamas/$chamaId/reports'),
+              child: const Text('Full report'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
         reportAsync.when(
           loading: () => const Padding(
             padding: EdgeInsets.symmetric(vertical: 24),

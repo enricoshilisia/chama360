@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/utils/display_name.dart';
 import '../../../../core/utils/error_message.dart';
 import '../../../../core/utils/phone_identity.dart';
 import '../../../../core/widgets/glass_container.dart';
 import '../../../../core/widgets/illustrated_header.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
 import '../providers/chama_providers.dart';
 
 /// Registering a chama is deliberately not a one-field form. It collects
@@ -34,6 +36,24 @@ class _RegisterChamaScreenState extends ConsumerState<RegisterChamaScreen> {
   bool _submitting = false;
   bool _submitted = false;
   String? _error;
+
+  /// Someone already signed in is applying for a second chama, so their
+  /// details are known and there's no invitation coming — approval simply
+  /// attaches the new chama to the account they already have.
+  bool get _alreadySignedIn => ref.read(currentUserProvider) != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final user = ref.read(currentUserProvider);
+    if (user == null) return;
+    _ownerNameCtrl.text = displayNameFor(user);
+    final email = user.email ?? '';
+    if (!PhoneIdentity.isSynthetic(email)) _ownerEmailCtrl.text = email;
+    final phone = (user.userMetadata?['phone'] as String?) ??
+        (PhoneIdentity.isSynthetic(email) ? email.split('@').first : '');
+    if (phone.isNotEmpty) _ownerPhoneCtrl.text = phone;
+  }
 
   @override
   void dispose() {
@@ -83,7 +103,12 @@ class _RegisterChamaScreenState extends ConsumerState<RegisterChamaScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_submitted) return _SubmittedScreen(email: _ownerEmailCtrl.text.trim());
+    if (_submitted) {
+      return _SubmittedScreen(
+        email: _ownerEmailCtrl.text.trim(),
+        alreadySignedIn: _alreadySignedIn,
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -275,9 +300,14 @@ class _RegisterChamaScreenState extends ConsumerState<RegisterChamaScreen> {
 /// account doesn't exist until the registration is approved. Saying so
 /// plainly avoids someone hunting for a password they were never given.
 class _SubmittedScreen extends StatelessWidget {
-  const _SubmittedScreen({required this.email});
+  const _SubmittedScreen({required this.email, this.alreadySignedIn = false});
 
   final String email;
+
+  /// An existing account gets no invitation — approval just attaches the
+  /// new chama to it. Promising an email that never arrives would leave
+  /// someone waiting for nothing.
+  final bool alreadySignedIn;
 
   @override
   Widget build(BuildContext context) {
@@ -309,8 +339,8 @@ class _SubmittedScreen extends StatelessWidget {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: () => context.go('/login'),
-                        child: const Text('Back to sign in'),
+                        onPressed: () => context.go(alreadySignedIn ? '/home' : '/login'),
+                        child: Text(alreadySignedIn ? 'Back to my chama' : 'Back to sign in'),
                       ),
                     ),
                   ],

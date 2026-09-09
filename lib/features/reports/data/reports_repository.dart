@@ -17,11 +17,16 @@ class ReportsRepository {
     final results = await Future.wait([
       _client
           .from('contributions')
-          .select('amount, contribution_date, member_id, chama_members(user_id, managed_full_name:full_name, profiles(full_name, email))')
+          .select('amount, contribution_date, member_id, '
+              'chama_members(user_id, managed_full_name:full_name, profiles(full_name, email))')
           .eq('chama_id', chamaId)
           .eq('status', 'completed'),
       _client.from('loans').select('principal, total_due, amount_repaid, status, due_date').eq('chama_id', chamaId),
-      _client.from('chama_members').select('id').eq('chama_id', chamaId).eq('status', 'active'),
+      _client
+          .from('chama_members')
+          .select('id, managed_full_name:full_name, profiles(full_name, email)')
+          .eq('chama_id', chamaId)
+          .eq('status', 'active'),
     ]);
 
     final contributions = (results[0] as List).cast<Map<String, dynamic>>();
@@ -91,7 +96,54 @@ class ReportsRepository {
       }
     }
 
+    // Every contribution as a row, newest first — the full report lists
+    // these rather than only summing them.
+    final entries = <ContributionEntry>[];
+    for (final c in contributions) {
+      final memberId = c['member_id'] as String;
+      entries.add(ContributionEntry(
+        memberId: memberId,
+        memberName: nameByMember[memberId] ?? 'Member',
+        amount: (c['amount'] as num).toDouble(),
+        date: DateTime.parse(c['contribution_date'] as String),
+      ));
+    }
+    entries.sort((a, b) => b.date.compareTo(a.date));
+
+    // Per-member totals across *all* active members, so someone who has
+    // never contributed still appears — with zero, which is the useful part.
+    final lastByMember = <String, DateTime>{};
+    final countByMember = <String, int>{};
+    for (final e in entries) {
+      countByMember[e.memberId] = (countByMember[e.memberId] ?? 0) + 1;
+      final seen = lastByMember[e.memberId];
+      if (seen == null || e.date.isAfter(seen)) lastByMember[e.memberId] = e.date;
+    }
+
+    final breakdown = <MemberContribution>[];
+    for (final m in members) {
+      final id = m['id'] as String;
+      final profile = m['profiles'] as Map<String, dynamic>?;
+      final fromProfile = (profile?['full_name'] as String?)?.trim();
+      final name = (fromProfile != null && fromProfile.isNotEmpty)
+          ? fromProfile
+          : (m['managed_full_name'] as String? ??
+              profile?['email'] as String? ??
+              nameByMember[id] ??
+              'Member');
+      breakdown.add(MemberContribution(
+        memberId: id,
+        name: name,
+        total: perMember[id] ?? 0,
+        count: countByMember[id] ?? 0,
+        lastDate: lastByMember[id],
+      ));
+    }
+    breakdown.sort((a, b) => b.total.compareTo(a.total));
+
     return ChamaReport(
+      entries: entries,
+      memberBreakdown: breakdown,
       totalContributions: totalContributions,
       memberCount: members.length,
       totalLoansDisbursed: totalLoansDisbursed,

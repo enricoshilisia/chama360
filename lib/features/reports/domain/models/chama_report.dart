@@ -14,6 +14,42 @@ class ContributorTotal {
   final double total;
 }
 
+/// A single contribution as it happened: who, how much, when. The full
+/// report lists these; the home summary never does.
+class ContributionEntry {
+  const ContributionEntry({
+    required this.memberId,
+    required this.memberName,
+    required this.amount,
+    required this.date,
+  });
+
+  final String memberId;
+  final String memberName;
+  final double amount;
+  final DateTime date;
+}
+
+/// One member's contribution record, for the per-member breakdown.
+class MemberContribution {
+  const MemberContribution({
+    required this.memberId,
+    required this.name,
+    required this.total,
+    required this.count,
+    this.lastDate,
+  });
+
+  final String memberId;
+  final String name;
+  final double total;
+  final int count;
+
+  /// Null when they've never contributed — which is the point of showing
+  /// it. A member with no date is the one to follow up.
+  final DateTime? lastDate;
+}
+
 /// Everything the dashboard's report section needs, computed once from the
 /// chama's full contribution and loan history. See ReportsRepository for
 /// how it's assembled.
@@ -27,6 +63,8 @@ class ChamaReport {
     required this.overdueLoanCount,
     required this.monthly,
     required this.topContributors,
+    this.entries = const [],
+    this.memberBreakdown = const [],
   });
 
   final double totalContributions;
@@ -37,6 +75,15 @@ class ChamaReport {
   final int overdueLoanCount;
   final List<MonthlyTotal> monthly;
   final List<ContributorTotal> topContributors;
+
+  /// Every contribution, newest first. Only the full report screen reads
+  /// these; the home summary works off the aggregates above.
+  final List<ContributionEntry> entries;
+
+  /// Every active member, including those who have contributed nothing —
+  /// omitting them would hide exactly the people a chairperson is looking
+  /// for.
+  final List<MemberContribution> memberBreakdown;
 
   static const empty = ChamaReport(
     totalContributions: 0,
