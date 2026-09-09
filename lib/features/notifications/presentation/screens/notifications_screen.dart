@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/layout.dart';
 import '../../../../core/widgets/glass_container.dart';
@@ -76,6 +77,17 @@ class _NotificationTile extends ConsumerWidget {
             if (!notification.isRead) {
               ref.read(notificationsRepositoryProvider).markRead(notification.id);
             }
+            final chamaId = notification.chamaId;
+            final linkId = notification.linkId;
+            if (chamaId == null || linkId == null) return;
+            switch (notification.linkType) {
+              // A loan request opens the member, not the loan: deciding
+              // means looking at who is asking and what they've put in.
+              case 'loan_request':
+                context.push('/chamas/$chamaId/members/$linkId');
+              case 'loan':
+                context.push('/chamas/$chamaId/loans/$linkId');
+            }
           },
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -110,6 +122,24 @@ class _NotificationTile extends ConsumerWidget {
                       '${notification.createdAt.toLocal()}'.split('.').first,
                       style: TextStyle(color: Colors.grey.shade400, fontSize: 11),
                     ),
+                    if (notification.isLoanRequest &&
+                        notification.chamaId != null &&
+                        notification.linkId != null) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Icon(Icons.how_to_reg_outlined,
+                              size: 15, color: Theme.of(context).colorScheme.primary),
+                          const SizedBox(width: 6),
+                          Text('Tap to review and decide',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: Theme.of(context).colorScheme.primary,
+                              )),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),

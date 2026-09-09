@@ -27,11 +27,22 @@ class ReportsRepository {
           .select('id, managed_full_name:full_name, profiles(full_name, email)')
           .eq('chama_id', chamaId)
           .eq('status', 'active'),
+      // Repayments hang off loans, so the chama filter has to be applied
+      // through the join — !inner keeps rows whose loan is in this chama
+      // and drops the rest, rather than returning every repayment ever.
+      _client
+          .from('loan_repayments')
+          .select('amount, repaid_at, loan_id, '
+              'loans!inner(chama_id, member_id, '
+              'chama_members(managed_full_name:full_name, profiles(full_name, email)))')
+          .eq('loans.chama_id', chamaId)
+          .order('repaid_at', ascending: false),
     ]);
 
     final contributions = (results[0] as List).cast<Map<String, dynamic>>();
     final loans = (results[1] as List).cast<Map<String, dynamic>>();
     final members = (results[2] as List).cast<Map<String, dynamic>>();
+    final repaymentRows = (results[3] as List).cast<Map<String, dynamic>>();
 
     final totalContributions = contributions.fold<double>(
       0,
@@ -141,9 +152,31 @@ class ReportsRepository {
     }
     breakdown.sort((a, b) => b.total.compareTo(a.total));
 
+    final repayments = <RepaymentEntry>[];
+    for (final r in repaymentRows) {
+      final loan = r['loans'] as Map<String, dynamic>?;
+      final memberJoin = loan?['chama_members'] as Map<String, dynamic>?;
+      final profile = memberJoin?['profiles'] as Map<String, dynamic>?;
+      final fromProfile = (profile?['full_name'] as String?)?.trim();
+      final memberId = loan?['member_id'] as String? ?? '';
+      repayments.add(RepaymentEntry(
+        loanId: r['loan_id'] as String,
+        memberId: memberId,
+        memberName: (fromProfile != null && fromProfile.isNotEmpty)
+            ? fromProfile
+            : (memberJoin?['managed_full_name'] as String? ??
+                profile?['email'] as String? ??
+                nameByMember[memberId] ??
+                'Member'),
+        amount: (r['amount'] as num).toDouble(),
+        date: DateTime.parse(r['repaid_at'] as String),
+      ));
+    }
+
     return ChamaReport(
       entries: entries,
       memberBreakdown: breakdown,
+      repayments: repayments,
       totalContributions: totalContributions,
       memberCount: members.length,
       totalLoansDisbursed: totalLoansDisbursed,

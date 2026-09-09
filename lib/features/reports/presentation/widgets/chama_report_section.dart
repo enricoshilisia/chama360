@@ -4,10 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/constants/chama_roles.dart';
 import '../../../../core/services/privacy_provider.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/currency.dart';
 import '../../../../core/widgets/glass_container.dart';
+import '../../../chama/presentation/providers/chama_providers.dart';
 import '../../domain/models/chama_report.dart';
 import '../providers/reports_providers.dart';
 
@@ -24,6 +26,14 @@ class ChamaReportSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final chama = ref.watch(chamaByIdProvider(chamaId));
+    final isAdmin = chama != null && ChamaRole.isAdmin(chama.role);
+
+    // A member's own report query only returns their own contributions,
+    // so summing it here would label their personal total as the chama's.
+    // The pooled figures come from the database instead.
+    if (!isAdmin) return _MemberSummary(chamaId: chamaId, visible: visible);
+
     final reportAsync = ref.watch(chamaReportProvider(chamaId));
 
     return Column(
@@ -272,6 +282,72 @@ class _MonthlyBarChart extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+
+/// What a member is allowed to see of the chama's finances: the pooled
+/// totals, and nothing about who put in what.
+class _MemberSummary extends ConsumerWidget {
+  const _MemberSummary({required this.chamaId, required this.visible});
+
+  final String chamaId;
+  final bool visible;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final totalsAsync = ref.watch(chamaTotalsProvider(chamaId));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('The chama',
+            style: Theme.of(context)
+                .textTheme
+                .titleMedium
+                ?.copyWith(fontWeight: FontWeight.w800)),
+        const SizedBox(height: 10),
+        totalsAsync.when(
+          loading: () => const Padding(
+            padding: EdgeInsets.symmetric(vertical: 20),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (e, _) => Text('Could not load totals: $e'),
+          data: (totals) => Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: _StatTile(
+                      label: 'Pooled contributions',
+                      value: maskable(formatMoney(totals.totalContributions), visible),
+                      icon: Icons.savings_rounded,
+                      color: AppColors.seedDark,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _StatTile(
+                      label: 'Members',
+                      value: '${totals.memberCount}',
+                      icon: Icons.groups_rounded,
+                      color: AppColors.accent,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              _StatTile(
+                label: 'Loans outstanding across the chama',
+                value: maskable(formatMoney(totals.totalOutstanding), visible),
+                icon: Icons.request_quote_outlined,
+                color: Colors.orange.shade700,
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

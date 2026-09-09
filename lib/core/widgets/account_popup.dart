@@ -9,6 +9,7 @@ import '../../features/chama/domain/models/chama.dart';
 import '../../features/chama/presentation/providers/chama_providers.dart';
 import '../../features/chama/presentation/providers/current_chama_provider.dart';
 import '../constants/chama_roles.dart';
+import '../services/app_lock.dart';
 import '../services/biometric_providers.dart';
 import '../theme/app_colors.dart';
 import '../utils/display_name.dart';
@@ -198,7 +199,7 @@ class _AccountPanel extends ConsumerWidget {
                     label: 'Lock app',
                     onTap: () {
                       Navigator.of(context).pop();
-                      ref.read(isAppUnlockedProvider.notifier).state = false;
+                      lockApp(ref);
                     },
                   ),
                 _Action(

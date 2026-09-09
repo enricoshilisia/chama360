@@ -51,11 +51,17 @@ class ChamaMembersScreen extends ConsumerWidget {
           separatorBuilder: (_, _) => const SizedBox(height: 8),
           itemBuilder: (context, i) {
             final m = members[i];
-            final isSelf = m.userId != null && m.userId == myUserId;
+            final isSelf = m.isSelf || (m.userId != null && m.userId == myUserId);
+
+            // A member can only open their own record; everyone else is
+            // just a name on the list to them.
+            final canOpen = isAdmin || m.isSelf;
 
             return Card(
               child: ListTile(
-                onTap: () => context.push('/chamas/$chamaId/members/${m.id}'),
+                onTap: canOpen
+                    ? () => context.push('/chamas/$chamaId/members/${m.id}')
+                    : null,
                 leading: CircleAvatar(child: Text(m.displayName.substring(0, 1).toUpperCase())),
                 title: Text(m.displayName),
                 subtitle: Text(
@@ -66,7 +72,11 @@ class ChamaMembersScreen extends ConsumerWidget {
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(formatMoney(m.balance), style: const TextStyle(fontWeight: FontWeight.w600)),
+                    if (m.balance != null)
+                      Text(formatMoney(m.balance!),
+                          style: const TextStyle(fontWeight: FontWeight.w600))
+                    else if (canOpen)
+                      const Icon(Icons.chevron_right_rounded, size: 20),
                     if (isAdmin && !isSelf) _MemberMenu(chamaId: chamaId, member: m),
                   ],
                 ),

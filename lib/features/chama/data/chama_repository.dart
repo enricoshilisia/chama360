@@ -129,6 +129,28 @@ class ChamaRepository {
     );
   }
 
+  Future<void> approveLoan({
+    required String loanId,
+    double interestRate = 0,
+    DateTime? dueDate,
+  }) async {
+    await _client.rpc('approve_loan', params: {
+      'p_loan_id': loanId,
+      'p_interest_rate': interestRate,
+      'p_due_date': dueDate?.toIso8601String().split('T').first,
+    });
+  }
+
+  /// The reason is required by the database, not just the form — a
+  /// rejection that reaches the borrower without one is the thing this is
+  /// meant to prevent.
+  Future<void> rejectLoan({required String loanId, required String reason}) async {
+    await _client.rpc('reject_loan', params: {
+      'p_loan_id': loanId,
+      'p_reason': reason,
+    });
+  }
+
   Future<String> joinChamaByCode(String inviteCode) async {
     final result = await _client.rpc('join_chama_by_code', params: {
       'p_invite_code': inviteCode.trim().toUpperCase(),
@@ -201,16 +223,27 @@ class ChamaRepository {
         .toList();
   }
 
+  /// The roster, via chama_roster() rather than the table: members can no
+  /// longer read each other's membership rows, and the function decides
+  /// who is allowed to see amounts.
   Future<List<ChamaMember>> members(String chamaId) async {
-    final rows = await _client
-        .from('chama_members')
-        .select(
-            'id, user_id, role, balance, joined_at, managed_full_name:full_name, managed_phone:phone, profiles(full_name, email, avatar_url, phone)')
-        .eq('chama_id', chamaId)
-        .eq('status', 'active');
+    final rows = await _client.rpc('chama_roster', params: {'p_chama_id': chamaId});
     return (rows as List)
-        .map((r) => ChamaMember.fromJson(r as Map<String, dynamic>))
+        .map((r) => ChamaMember.fromRoster(r as Map<String, dynamic>))
         .toList();
+  }
+
+  /// Pooled figures every member may see, even though the per-member
+  /// breakdown behind them is not theirs to read.
+  Future<({double totalContributions, int memberCount, double totalOutstanding})>
+      chamaTotals(String chamaId) async {
+    final rows = await _client.rpc('chama_totals', params: {'p_chama_id': chamaId});
+    final row = (rows as List).first as Map<String, dynamic>;
+    return (
+      totalContributions: (row['total_contributions'] as num?)?.toDouble() ?? 0,
+      memberCount: (row['member_count'] as num?)?.toInt() ?? 0,
+      totalOutstanding: (row['total_outstanding'] as num?)?.toDouble() ?? 0,
+    );
   }
 
   /// Admin-only (enforced by the chama_members_admin_update RLS policy).

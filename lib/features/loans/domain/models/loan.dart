@@ -14,6 +14,7 @@ class Loan {
     required this.createdAt,
     this.borrowerName,
     this.isMine = false,
+    this.rejectionReason,
   });
 
   final String id;
@@ -29,6 +30,10 @@ class Loan {
   final DateTime createdAt;
   final String? borrowerName;
   final bool isMine;
+
+  /// Why it was turned down. Always present on a rejected loan — the
+  /// database refuses a rejection without one.
+  final String? rejectionReason;
 
   double get outstanding => (totalDue - amountRepaid).clamp(0, double.infinity);
 
@@ -53,6 +58,7 @@ class Loan {
           memberJoin?['managed_full_name'] as String? ??
           profile?['email'] as String?,
       isMine: currentUserId != null && ownerUserId == currentUserId,
+      rejectionReason: json['rejection_reason'] as String?,
     );
   }
 }

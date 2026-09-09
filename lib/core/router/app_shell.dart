@@ -1,7 +1,9 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../services/app_lock.dart';
 import '../widgets/app_top_bar.dart';
 import '../widgets/glass_container.dart';
 
@@ -12,7 +14,7 @@ import '../widgets/glass_container.dart';
 /// Because the top bar belongs to the shell rather than to each screen,
 /// individual screens don't declare their own AppBar for identity — they
 /// only add one when they need a title or a back arrow.
-class AppShell extends StatelessWidget {
+class AppShell extends ConsumerWidget {
   const AppShell({
     super.key,
     required this.child,
@@ -25,7 +27,21 @@ class AppShell extends StatelessWidget {
   final ValueChanged<int> onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    return PopScope(
+      // Back from a tab root used to drop straight out of the app, leaving
+      // the session unlocked behind it. Now it locks first and then leaves,
+      // so the next launch starts at the biometric prompt.
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        lockApp(ref);
+      },
+      child: _shell(context),
+    );
+  }
+
+  Widget _shell(BuildContext context) {
     return Scaffold(
       extendBody: true,
       appBar: const AppTopBar(),

@@ -9,6 +9,7 @@ import '../../../../core/utils/phone_identity.dart';
 import '../../../../core/widgets/glass_container.dart';
 import '../../../loans/domain/models/loan.dart';
 import '../../../loans/presentation/providers/loans_providers.dart';
+import '../../../loans/presentation/widgets/loan_decision.dart';
 import '../../domain/models/chama_member.dart';
 import '../../domain/models/chama_transaction.dart';
 import '../providers/chama_providers.dart';
@@ -83,14 +84,18 @@ class MemberDetailScreen extends ConsumerWidget {
                           ],
                         ),
                       ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(formatMoney(member.balance, currency: currency),
-                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                          Text('balance', style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
-                        ],
-                      ),
+                      if (member.balance != null)
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(formatMoney(member.balance!, currency: currency),
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w800, fontSize: 16)),
+                            Text('balance',
+                                style: TextStyle(
+                                    color: Colors.grey.shade500, fontSize: 11)),
+                          ],
+                        ),
                     ],
                   ),
                 ),
@@ -100,6 +105,43 @@ class MemberDetailScreen extends ConsumerWidget {
                     _GiveLoginButton(chamaId: chamaId, member: member)
                   else
                     _ResetPasswordButton(chamaId: chamaId, member: member),
+                ],
+                // Pending requests come first and carry their own
+                // decision buttons: a notification drops an admin here, and
+                // having to hunt for the loan afterwards defeats the point.
+                for (final loan in memberLoans.where((l) => l.status == 'pending')) ...[
+                  const SizedBox(height: 14),
+                  GlassContainer(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.pending_actions_rounded,
+                                size: 18, color: Colors.orange),
+                            const SizedBox(width: 8),
+                            const Text('Loan request awaiting your decision',
+                                style: TextStyle(
+                                    fontSize: 13, fontWeight: FontWeight.w800)),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Text(formatMoney(loan.principal, currency: currency),
+                            style: const TextStyle(
+                                fontSize: 22, fontWeight: FontWeight.w800)),
+                        if (loan.purpose != null && loan.purpose!.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(loan.purpose!,
+                              style: TextStyle(
+                                  color: Colors.grey.shade600, fontSize: 13)),
+                        ],
+                        if (chama != null && ChamaRole.isAdmin(chama.role)) ...[
+                          const SizedBox(height: 14),
+                          LoanDecisionButtons(loan: loan),
+                        ],
+                      ],
+                    ),
+                  ),
                 ],
                 if (memberLoans.isNotEmpty) ...[
                   const SizedBox(height: 20),
@@ -111,7 +153,10 @@ class MemberDetailScreen extends ConsumerWidget {
                       child: ListTile(
                         onTap: () => context.push('/chamas/$chamaId/loans/${loan.id}'),
                         title: Text(formatMoney(loan.principal, currency: currency)),
-                        subtitle: Text(loan.status.toUpperCase(),
+                        subtitle: Text(
+                            loan.status == 'rejected' && loan.rejectionReason != null
+                                ? 'REJECTED — ${loan.rejectionReason}'
+                                : loan.status.toUpperCase(),
                             style: const TextStyle(fontSize: 11)),
                         trailing: loan.status == 'active'
                             ? Text('owes ${formatMoney(loan.outstanding, currency: currency)}',

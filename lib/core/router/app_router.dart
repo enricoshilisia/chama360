@@ -66,7 +66,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) => AppShell(
           currentIndex: navigationShell.currentIndex,
-          onTap: (i) => navigationShell.goBranch(i, initialLocation: i == navigationShell.currentIndex),
+          // Always reset to the tab's root. Tapping Home should land on
+          // Home, not on whatever was pushed on top of it last time.
+          onTap: (i) => navigationShell.goBranch(i, initialLocation: true),
           child: navigationShell,
         ),
         branches: [

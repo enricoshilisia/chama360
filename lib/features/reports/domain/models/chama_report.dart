@@ -30,6 +30,25 @@ class ContributionEntry {
   final DateTime date;
 }
 
+/// A repayment as it happened: who paid back, how much, when. Kept
+/// separate from the loan it belongs to, because a loan repaid in six
+/// instalments is six events a chairperson may need to account for.
+class RepaymentEntry {
+  const RepaymentEntry({
+    required this.loanId,
+    required this.memberId,
+    required this.memberName,
+    required this.amount,
+    required this.date,
+  });
+
+  final String loanId;
+  final String memberId;
+  final String memberName;
+  final double amount;
+  final DateTime date;
+}
+
 /// One member's contribution record, for the per-member breakdown.
 class MemberContribution {
   const MemberContribution({
@@ -65,6 +84,7 @@ class ChamaReport {
     required this.topContributors,
     this.entries = const [],
     this.memberBreakdown = const [],
+    this.repayments = const [],
   });
 
   final double totalContributions;
@@ -84,6 +104,9 @@ class ChamaReport {
   /// omitting them would hide exactly the people a chairperson is looking
   /// for.
   final List<MemberContribution> memberBreakdown;
+
+  /// Every loan repayment, newest first.
+  final List<RepaymentEntry> repayments;
 
   static const empty = ChamaReport(
     totalContributions: 0,

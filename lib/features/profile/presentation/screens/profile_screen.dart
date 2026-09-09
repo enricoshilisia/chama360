@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/services/app_lock.dart';
 import '../../../../core/services/biometric_providers.dart';
 import '../../../../core/theme/layout.dart';
 import '../../../../core/utils/display_name.dart';
@@ -122,7 +123,7 @@ class ProfileScreen extends ConsumerWidget {
             // form. A full account sign-out is still one tap away below,
             // for switching accounts or turning biometric off for good.
             OutlinedButton.icon(
-              onPressed: () => ref.read(isAppUnlockedProvider.notifier).state = false,
+              onPressed: () => lockApp(ref),
               icon: const Icon(Icons.lock_outline_rounded),
               label: const Text('Lock app'),
               style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),

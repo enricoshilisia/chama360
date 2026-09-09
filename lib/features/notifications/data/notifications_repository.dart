@@ -14,7 +14,7 @@ class NotificationsRepository {
     final userId = _client.auth.currentUser!.id;
     final rows = await _client
         .from('notifications')
-        .select()
+        .select('*')
         .eq('user_id', userId)
         .order('created_at', ascending: false)
         .limit(100);

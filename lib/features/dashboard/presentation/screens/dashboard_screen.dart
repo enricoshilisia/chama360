@@ -238,7 +238,7 @@ class _ActiveHome extends ConsumerWidget {
                 }
                 return Column(
                   children: [
-                    for (final txn in activity.take(6))
+                    for (final txn in activity.take(12))
                       _ActivityTile(
                         txn: txn,
                         chamaName: chama.name,
