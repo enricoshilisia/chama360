@@ -4,20 +4,10 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../theme/breakpoints.dart';
 import '../services/app_lock.dart';
 import '../widgets/app_top_bar.dart';
 import '../widgets/glass_container.dart';
-
-/// Where a phone layout stops making sense. Below this the app keeps the
-/// bottom bar it was designed around; above it — an installed PWA on a Mac,
-/// a browser window on a laptop — navigation moves to a side rail and the
-/// content stops stretching the full width of the screen.
-const double _wideLayoutBreakpoint = 900;
-
-/// Content wider than this is harder to read, not more useful: a list of
-/// members spread across 2000px puts the name and the amount at opposite
-/// ends of the desk.
-const double _maxContentWidth = 840;
 
 /// The frame the whole signed-in app sits inside: brand and account above,
 /// navigation below (or beside), content between. Both bars are frosted
@@ -67,7 +57,7 @@ class AppShell extends ConsumerWidget {
       },
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final wide = constraints.maxWidth >= _wideLayoutBreakpoint;
+          final wide = constraints.maxWidth >= Breakpoints.compact;
           return wide ? _wideShell(context) : _compactShell(context);
         },
       ),
@@ -126,15 +116,10 @@ class AppShell extends ConsumerWidget {
               onTap: onTap,
               destinations: _destinations,
             ),
-            Expanded(
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: _maxContentWidth),
-                  child: child,
-                ),
-              ),
-            ),
+            // No width clamp here: each screen decides what to do with the
+            // space, because the right answer differs — a report wants a
+            // wide table, a form does not.
+            Expanded(child: child),
           ],
         ),
       ),

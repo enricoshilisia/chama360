@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/layout.dart';
 import '../../../../core/utils/currency.dart';
+import '../../../../core/widgets/content_width.dart';
 import '../../../../core/widgets/glass_container.dart';
 import '../../../../core/constants/chama_roles.dart';
 import '../../../chama/presentation/providers/chama_providers.dart';
@@ -82,29 +83,32 @@ class _ChamaReportScreenState extends ConsumerState<ChamaReportScreen>
         ),
         data: (report) => RefreshIndicator(
           onRefresh: () async => ref.invalidate(chamaReportProvider(widget.chamaId)),
-          child: TabBarView(
+          child: ContentWidth(
+            maxWidth: 1100,
+            child: TabBarView(
             controller: controller,
-            children: [
-              _OverviewTab(
-                report: report,
-                currency: currency,
-                isAdmin: isAdmin,
-                chamaId: widget.chamaId,
-              ),
-              if (isAdmin) ...[
-                _MembersTab(
+              children: [
+                _OverviewTab(
                   report: report,
                   currency: currency,
+                  isAdmin: isAdmin,
                   chamaId: widget.chamaId,
                 ),
-                _ContributionsTab(report: report, currency: currency),
-                _BorrowingTab(
-                  chamaId: widget.chamaId,
-                  currency: currency,
-                  report: report,
-                ),
+                if (isAdmin) ...[
+                  _MembersTab(
+                    report: report,
+                    currency: currency,
+                    chamaId: widget.chamaId,
+                  ),
+                  _ContributionsTab(report: report, currency: currency),
+                  _BorrowingTab(
+                    chamaId: widget.chamaId,
+                    currency: currency,
+                    report: report,
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

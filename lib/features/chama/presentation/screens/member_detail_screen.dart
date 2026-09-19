@@ -19,10 +19,20 @@ import '../providers/chama_providers.dart';
 /// history. Reached from tapping a member in the roster, or a transaction
 /// in an activity feed.
 class MemberDetailScreen extends ConsumerWidget {
-  const MemberDetailScreen({super.key, required this.chamaId, required this.memberId});
+  const MemberDetailScreen({
+    super.key,
+    required this.chamaId,
+    required this.memberId,
+    this.embedded = false,
+  });
 
   final String chamaId;
   final String memberId;
+
+  /// True when shown as the detail pane beside the roster, where a title
+  /// bar and a back arrow would both be wrong — there is nothing to go
+  /// back to, the list is right there.
+  final bool embedded;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -33,7 +43,8 @@ class MemberDetailScreen extends ConsumerWidget {
     final currency = chama?.currency ?? 'KES';
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Member')),
+      backgroundColor: embedded ? Colors.transparent : null,
+      appBar: embedded ? null : AppBar(title: const Text('Member')),
       body: membersAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),

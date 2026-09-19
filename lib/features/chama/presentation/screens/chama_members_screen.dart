@@ -14,6 +14,8 @@ class ChamaMembersScreen extends ConsumerWidget {
     super.key,
     required this.chamaId,
     this.embedded = false,
+    this.selectedMemberId,
+    this.onSelect,
   });
 
   final String chamaId;
@@ -21,6 +23,14 @@ class ChamaMembersScreen extends ConsumerWidget {
   /// True when shown as the Members tab, which already sits under the
   /// shell's top bar — a second AppBar there would stack two headers.
   final bool embedded;
+
+  /// Set only in the wide two-pane layout, where the list is a master pane
+  /// and the highlighted row is the one shown beside it.
+  final String? selectedMemberId;
+
+  /// When provided, tapping selects rather than navigates — the detail is
+  /// already on screen next to the list.
+  final ValueChanged<String>? onSelect;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -56,12 +66,19 @@ class ChamaMembersScreen extends ConsumerWidget {
             // A member can only open their own record; everyone else is
             // just a name on the list to them.
             final canOpen = isAdmin || m.isSelf;
+            final isSelected = selectedMemberId == m.id;
 
             return Card(
+              color: isSelected
+                  ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.10)
+                  : null,
               child: ListTile(
-                onTap: canOpen
-                    ? () => context.push('/chamas/$chamaId/members/${m.id}')
-                    : null,
+                selected: isSelected,
+                onTap: !canOpen
+                    ? null
+                    : onSelect != null
+                        ? () => onSelect!(m.id)
+                        : () => context.push('/chamas/$chamaId/members/${m.id}'),
                 leading: CircleAvatar(child: Text(m.displayName.substring(0, 1).toUpperCase())),
                 title: Text(m.displayName),
                 subtitle: Text(

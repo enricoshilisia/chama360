@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/services/app_lock.dart';
 import '../../../../core/services/biometric_providers.dart';
 import '../../../../core/theme/layout.dart';
+import '../../../../core/widgets/content_width.dart';
 import '../../../../core/utils/display_name.dart';
 import '../../../../core/theme/theme_mode_provider.dart';
 import '../../../../core/widgets/glass_container.dart';
@@ -24,7 +25,8 @@ class ProfileScreen extends ConsumerWidget {
       // No AppBar: the shell's top bar already sits above this tab, and a
       // second header would stack two titles.
       backgroundColor: Colors.transparent,
-      body: ListView(
+      body: ContentWidth(
+        child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 18, 16, kShellBottomInset),
         children: [
           const Padding(
@@ -144,7 +146,8 @@ class ProfileScreen extends ConsumerWidget {
                 padding: const EdgeInsets.symmetric(vertical: 14),
               ),
             ),
-        ],
+          ],
+        ),
       ),
     );
   }

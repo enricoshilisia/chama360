@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/constants/chama_roles.dart';
 import '../../../../core/services/connectivity_service.dart';
 import '../../../../core/services/privacy_provider.dart';
+import '../../../../core/theme/breakpoints.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/layout.dart';
 import '../../../../core/utils/currency.dart';
@@ -173,87 +174,160 @@ class _ActiveHome extends ConsumerWidget {
     final balanceVisible = ref.watch(balanceVisibleProvider);
     final activityAsync = ref.watch(chamaTransactionsProvider(chama.id));
     final firstName = displayNameFor(ref.watch(currentUserProvider)).split(' ').first;
+    final wide = Breakpoints.isWide(context);
 
+    Future<void> refresh() async {
+      ref.invalidate(myChamasProvider);
+      ref.invalidate(chamaTransactionsProvider(chama.id));
+      ref.invalidate(chamaReportProvider(chama.id));
+      ref.invalidate(chamaTotalsProvider(chama.id));
+    }
+
+    final header = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('${_greeting()}, $firstName',
+            style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+        const SizedBox(height: 2),
+        Text(chama.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+                fontSize: wide ? 26 : 21, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 16),
+        if (!isOnline) ...[
+          const _OfflinePill(),
+          const SizedBox(height: 12),
+        ],
+      ],
+    );
+
+    final balanceAndActions = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _HeroBalanceCard(
+          total: chama.balance,
+          chamaCount: 1,
+          visible: balanceVisible,
+          onToggleVisible: () =>
+              ref.read(balanceVisibleProvider.notifier).state = !balanceVisible,
+        ),
+        const SizedBox(height: 18),
+        _QuickActions(chama: chama),
+      ],
+    );
+
+    final activity = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Recent activity',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w800)),
+            TextButton(
+              onPressed: () => context.push('/chamas/${chama.id}'),
+              child: const Text('See all'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        activityAsync.when(
+          loading: () => const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (e, _) => Text('Could not load activity: $e'),
+          data: (list) {
+            if (list.isEmpty) {
+              return GlassContainer(
+                child: Text('No activity yet — record a contribution to get started.',
+                    style: TextStyle(color: Colors.grey.shade600)),
+              );
+            }
+            // A taller window can show more without becoming a scroll
+            // marathon, so the desktop column carries a longer feed.
+            return Column(
+              children: [
+                for (final txn in list.take(wide ? 20 : 12))
+                  _ActivityTile(
+                    txn: txn,
+                    chamaName: chama.name,
+                    visible: balanceVisible,
+                    onTap: () => txn.memberId == null
+                        ? context.push('/chamas/${chama.id}')
+                        : context.push('/chamas/${chama.id}/members/${txn.memberId}'),
+                  ),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+
+    final report = ChamaReportSection(chamaId: chama.id, visible: balanceVisible);
+
+    // Narrow: one column, everything stacked, as before.
+    if (!wide) {
+      return RefreshIndicator(
+        onRefresh: refresh,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, kShellBottomInset),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              header,
+              balanceAndActions,
+              const SizedBox(height: 24),
+              activity,
+              const SizedBox(height: 26),
+              report,
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Wide: money and activity on the left, the report beside it, so the
+    // two things a chairperson checks together are visible together
+    // instead of one being a scroll away from the other.
     return RefreshIndicator(
-      onRefresh: () async {
-        ref.invalidate(myChamasProvider);
-        ref.invalidate(chamaTransactionsProvider(chama.id));
-        ref.invalidate(chamaReportProvider(chama.id));
-      },
+      onRefresh: refresh,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, kShellBottomInset),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('${_greeting()}, $firstName',
-                style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
-            const SizedBox(height: 2),
-            Text(chama.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 16),
-            if (!isOnline) ...[
-              const _OfflinePill(),
-              const SizedBox(height: 12),
-            ],
-            _HeroBalanceCard(
-              total: chama.balance,
-              chamaCount: 1,
-              visible: balanceVisible,
-              onToggleVisible: () =>
-                  ref.read(balanceVisibleProvider.notifier).state = !balanceVisible,
-            ),
-            const SizedBox(height: 18),
-            _QuickActions(chama: chama),
-            const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        padding: const EdgeInsets.fromLTRB(28, 22, 28, 32),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1240),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Recent activity',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w800)),
-                TextButton(
-                  onPressed: () => context.push('/chamas/${chama.id}'),
-                  child: const Text('See all'),
+                header,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      flex: 5,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          balanceAndActions,
+                          const SizedBox(height: 26),
+                          activity,
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 26),
+                    Expanded(flex: 4, child: report),
+                  ],
                 ),
               ],
             ),
-            const SizedBox(height: 4),
-            activityAsync.when(
-              loading: () => const Padding(
-                padding: EdgeInsets.symmetric(vertical: 24),
-                child: Center(child: CircularProgressIndicator()),
-              ),
-              error: (e, _) => Text('Could not load activity: $e'),
-              data: (activity) {
-                if (activity.isEmpty) {
-                  return GlassContainer(
-                    child: Text('No activity yet — record a contribution to get started.',
-                        style: TextStyle(color: Colors.grey.shade600)),
-                  );
-                }
-                return Column(
-                  children: [
-                    for (final txn in activity.take(12))
-                      _ActivityTile(
-                        txn: txn,
-                        chamaName: chama.name,
-                        visible: balanceVisible,
-                        onTap: () => txn.memberId == null
-                            ? context.push('/chamas/${chama.id}')
-                            : context.push('/chamas/${chama.id}/members/${txn.memberId}'),
-                      ),
-                  ],
-                );
-              },
-            ),
-            const SizedBox(height: 26),
-            ChamaReportSection(chamaId: chama.id, visible: balanceVisible),
-          ],
+          ),
         ),
       ),
     );

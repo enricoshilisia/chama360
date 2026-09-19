@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/layout.dart';
+import '../../../../core/widgets/content_width.dart';
 import '../../../../core/widgets/glass_container.dart';
 import '../../domain/models/app_notification.dart';
 import '../providers/notifications_providers.dart';
@@ -18,8 +19,9 @@ class NotificationsScreen extends ConsumerWidget {
       // The shell's top bar is already overhead, so the title sits inline
       // rather than in a second AppBar stacked beneath it.
       backgroundColor: Colors.transparent,
-      body: Column(
-        children: [
+      body: ContentWidth(
+        child: Column(
+          children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 18, 8, 4),
             child: Row(
@@ -54,7 +56,8 @@ class NotificationsScreen extends ConsumerWidget {
               },
             ),
           ),
-        ],
+          ],
+        ),
       ),
     );
   }
