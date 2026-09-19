@@ -8,9 +8,20 @@ import '../services/app_lock.dart';
 import '../widgets/app_top_bar.dart';
 import '../widgets/glass_container.dart';
 
+/// Where a phone layout stops making sense. Below this the app keeps the
+/// bottom bar it was designed around; above it — an installed PWA on a Mac,
+/// a browser window on a laptop — navigation moves to a side rail and the
+/// content stops stretching the full width of the screen.
+const double _wideLayoutBreakpoint = 900;
+
+/// Content wider than this is harder to read, not more useful: a list of
+/// members spread across 2000px puts the name and the amount at opposite
+/// ends of the desk.
+const double _maxContentWidth = 840;
+
 /// The frame the whole signed-in app sits inside: brand and account above,
-/// navigation below, content between. Both bars are frosted strips floating
-/// over the gradient backdrop.
+/// navigation below (or beside), content between. Both bars are frosted
+/// strips floating over the gradient backdrop.
 ///
 /// Because the top bar belongs to the shell rather than to each screen,
 /// individual screens don't declare their own AppBar for identity — they
@@ -27,6 +38,19 @@ class AppShell extends ConsumerWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
 
+  static const _destinations = [
+    (icon: Icons.home_outlined, selected: Icons.home_rounded, label: 'Home'),
+    // Members, not Chamas: you are inside one chama at a time now, and
+    // switching between them belongs to the account popup, not a whole tab.
+    (icon: Icons.people_outline_rounded, selected: Icons.people_rounded, label: 'Members'),
+    (
+      icon: Icons.notifications_outlined,
+      selected: Icons.notifications_rounded,
+      label: 'Alerts'
+    ),
+    (icon: Icons.person_outline_rounded, selected: Icons.person_rounded, label: 'Profile'),
+  ];
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return PopScope(
@@ -41,11 +65,17 @@ class AppShell extends ConsumerWidget {
         if (didPop || kIsWeb) return;
         lockApp(ref);
       },
-      child: _shell(context),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final wide = constraints.maxWidth >= _wideLayoutBreakpoint;
+          return wide ? _wideShell(context) : _compactShell(context);
+        },
+      ),
     );
   }
 
-  Widget _shell(BuildContext context) {
+  /// Phone layout: the bottom bar the rest of the app is padded for.
+  Widget _compactShell(BuildContext context) {
     return Scaffold(
       extendBody: true,
       appBar: const AppTopBar(),
@@ -57,12 +87,7 @@ class AppShell extends ConsumerWidget {
             decoration: BoxDecoration(
               color: Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.7),
               border: Border(
-                top: BorderSide(
-                  color: (Theme.of(context).brightness == Brightness.dark
-                          ? Colors.white
-                          : Colors.black)
-                      .withValues(alpha: 0.06),
-                ),
+                top: BorderSide(color: _hairline(context)),
               ),
             ),
             child: SafeArea(
@@ -71,33 +96,92 @@ class AppShell extends ConsumerWidget {
                 selectedIndex: currentIndex,
                 onDestinationSelected: onTap,
                 backgroundColor: Colors.transparent,
-                destinations: const [
-                  NavigationDestination(
-                    icon: Icon(Icons.home_outlined),
-                    selectedIcon: Icon(Icons.home_rounded),
-                    label: 'Home',
-                  ),
-                  // Members, not Chamas: you are inside one chama at a time
-                  // now, and switching between them belongs to the account
-                  // popup rather than a whole tab.
-                  NavigationDestination(
-                    icon: Icon(Icons.people_outline_rounded),
-                    selectedIcon: Icon(Icons.people_rounded),
-                    label: 'Members',
-                  ),
-                  NavigationDestination(
-                    icon: Icon(Icons.notifications_outlined),
-                    selectedIcon: Icon(Icons.notifications_rounded),
-                    label: 'Alerts',
-                  ),
-                  NavigationDestination(
-                    icon: Icon(Icons.person_outline_rounded),
-                    selectedIcon: Icon(Icons.person_rounded),
-                    label: 'Profile',
-                  ),
+                destinations: [
+                  for (final d in _destinations)
+                    NavigationDestination(
+                      icon: Icon(d.icon),
+                      selectedIcon: Icon(d.selected),
+                      label: d.label,
+                    ),
                 ],
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Desktop layout: navigation on the left where the window is wide, and
+  /// the content column held to a readable width in the middle rather than
+  /// smeared across the whole screen.
+  Widget _wideShell(BuildContext context) {
+    return Scaffold(
+      appBar: const AppTopBar(),
+      body: GradientBackdrop(
+        child: Row(
+          children: [
+            _SideRail(
+              currentIndex: currentIndex,
+              onTap: onTap,
+              destinations: _destinations,
+            ),
+            Expanded(
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: _maxContentWidth),
+                  child: child,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static Color _hairline(BuildContext context) =>
+      (Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black)
+          .withValues(alpha: 0.06);
+}
+
+class _SideRail extends StatelessWidget {
+  const _SideRail({
+    required this.currentIndex,
+    required this.onTap,
+    required this.destinations,
+  });
+
+  final int currentIndex;
+  final ValueChanged<int> onTap;
+  final List<({IconData icon, IconData selected, String label})> destinations;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.6),
+            border: Border(right: BorderSide(color: AppShell._hairline(context))),
+          ),
+          child: NavigationRail(
+            selectedIndex: currentIndex,
+            onDestinationSelected: onTap,
+            backgroundColor: Colors.transparent,
+            // Labels stay visible: a rail of four bare icons makes people
+            // hover to find out what they are, every time.
+            labelType: NavigationRailLabelType.all,
+            destinations: [
+              for (final d in destinations)
+                NavigationRailDestination(
+                  icon: Icon(d.icon),
+                  selectedIcon: Icon(d.selected),
+                  label: Text(d.label),
+                ),
+            ],
           ),
         ),
       ),

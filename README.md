@@ -6,7 +6,11 @@ Enable "install from unknown sources" for whichever app you download it through.
 
 🌐 **[Open the web app / install on iPhone](https://enricoshilisia.github.io/chama360/)**
 On iPhone: open that link in **Safari** (not Chrome), tap Share, then
-"Add to Home Screen". It then opens fullscreen like an installed app.
+"Add to Home Screen".
+On macOS: Safari → File → **Add to Dock**, or Chrome/Edge → the install
+icon in the address bar. On a wide window the app switches to a side
+navigation rail with the content column held to a readable width, rather
+than stretching a phone layout across the screen.
 
 Flutter + Supabase chama (savings group) app. No Django, no VPS — Supabase is
 the entire backend (Postgres, auth, realtime, storage), Flutter is the only

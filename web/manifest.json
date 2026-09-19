@@ -1,13 +1,45 @@
 {
+    "id": "/chama360/",
     "name": "Chama360",
     "short_name": "Chama360",
     "start_url": ".",
+    "scope": ".",
     "display": "standalone",
+    "display_override": ["standalone", "minimal-ui"],
+    "launch_handler": {
+        "client_mode": "focus-existing"
+    },
     "background_color": "#F3F8F3",
     "theme_color": "#4E9950",
     "description": "Run your chama: contributions, loans and members in one place.",
-    "orientation": "portrait-primary",
+    "lang": "en",
+    "dir": "ltr",
+    "categories": ["finance", "productivity", "business"],
+    "orientation": "any",
     "prefer_related_applications": false,
+    "shortcuts": [
+        {
+            "name": "Members",
+            "short_name": "Members",
+            "description": "The roster for the chama you're in",
+            "url": "./#/chamas",
+            "icons": [{ "src": "icons/Icon-192.png", "sizes": "192x192" }]
+        },
+        {
+            "name": "Notifications",
+            "short_name": "Alerts",
+            "description": "Loan requests and contribution alerts",
+            "url": "./#/notifications",
+            "icons": [{ "src": "icons/Icon-192.png", "sizes": "192x192" }]
+        },
+        {
+            "name": "Profile",
+            "short_name": "Profile",
+            "description": "Your account and settings",
+            "url": "./#/profile",
+            "icons": [{ "src": "icons/Icon-192.png", "sizes": "192x192" }]
+        }
+    ],
     "icons": [
         {
             "src": "icons/Icon-192.png",
