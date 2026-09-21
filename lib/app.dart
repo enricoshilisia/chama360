@@ -48,8 +48,13 @@ class ChamaApp extends ConsumerWidget {
           return const AppLockScreen();
         }
         // A member still on the temporary password the chairperson gave
-        // them can't go anywhere else until they set their own.
-        if (loggedIn && user.userMetadata?['must_change_password'] == true) {
+        // them can't go anywhere else until they set their own — and so
+        // does anyone who arrived through a password-recovery link, who
+        // would otherwise be dropped on the home screen having reset
+        // nothing.
+        final recovering = ref.watch(passwordRecoveryProvider);
+        if (loggedIn &&
+            (recovering || user.userMetadata?['must_change_password'] == true)) {
           return const SetCredentialScreen();
         }
         // Offered once, straight after that — skippable.

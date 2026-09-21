@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/config/auth_redirects.dart';
 import '../../../core/utils/phone_identity.dart';
 
 /// Wraps Supabase Auth calls. Screens/providers never talk to
@@ -67,7 +69,17 @@ class AuthRepository {
 
   Future<void> signOut() => _client.auth.signOut();
 
+  /// Sends the "forgot password" email.
+  ///
+  /// Without an explicit redirect this falls back to the project's
+  /// site_url, which points at the web build — so an Android user tapping
+  /// the link in their inbox was dropped onto a web page instead of back
+  /// into the app they started from. Each client now names its own return
+  /// address.
   Future<void> resetPassword(String email) {
-    return _client.auth.resetPasswordForEmail(email);
+    return _client.auth.resetPasswordForEmail(
+      email,
+      redirectTo: kIsWeb ? null : AuthRedirects.appDeepLink,
+    );
   }
 }

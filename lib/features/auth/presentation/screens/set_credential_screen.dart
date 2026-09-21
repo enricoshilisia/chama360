@@ -41,6 +41,8 @@ class _SetCredentialScreenState extends ConsumerState<SetCredentialScreen> {
     });
     try {
       await ref.read(authRepositoryProvider).setNewCredential(_newCtrl.text);
+      // Recovery is over the moment a new password exists.
+      ref.read(passwordRecoveryProvider.notifier).clear();
       // The must_change_password flag is cleared as part of that call, which
       // drops this screen automatically. Offer biometrics on the way out —
       // they've just typed a credential, so the pitch lands better here
@@ -62,6 +64,10 @@ class _SetCredentialScreenState extends ConsumerState<SetCredentialScreen> {
   @override
   Widget build(BuildContext context) {
     final isPin = CredentialValidator.looksLikePin(_newCtrl.text);
+    // Same screen, two routes in: a temporary password handed over by a
+    // chairperson, or a recovery link from your own inbox. Saying the
+    // wrong one is confusing at exactly the wrong moment.
+    final recovering = ref.watch(passwordRecoveryProvider);
 
     return Scaffold(
       body: GradientBackdrop(
@@ -76,13 +82,16 @@ class _SetCredentialScreenState extends ConsumerState<SetCredentialScreen> {
                   children: [
                     Image.asset('assets/icon/app_icon.png', width: 72, height: 72),
                     const SizedBox(height: 18),
-                    const Text('Set your password',
+                    Text(recovering ? 'Choose a new password' : 'Set your password',
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
                     const SizedBox(height: 6),
                     Text(
-                      'You signed in with a temporary password. Choose something only '
-                      'you know — either a 4 or 6 digit PIN, or a longer password.',
+                      recovering
+                          ? 'Pick something only you know — either a 4 or 6 digit PIN, '
+                              'or a longer password.'
+                          : 'You signed in with a temporary password. Choose something only '
+                              'you know — either a 4 or 6 digit PIN, or a longer password.',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Colors.grey.shade600, height: 1.4),
                     ),
