@@ -21,6 +21,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _phoneCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   bool _loading = false;
+  bool _sendingReset = false;
   bool _obscure = true;
   bool _usePhone = false;
   String? _error;
@@ -31,6 +32,59 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     _phoneCtrl.dispose();
     _passwordCtrl.dispose();
     super.dispose();
+  }
+
+  /// Sends the password-reset email.
+  ///
+  /// Every branch here says something. The previous version returned
+  /// silently on an empty field and let any error propagate unseen, so a
+  /// rate-limited or rejected request looked identical to a working one:
+  /// you pressed it and nothing happened.
+  Future<void> _sendReset() async {
+    final email = _emailCtrl.text.trim();
+
+    if (email.isEmpty || !email.contains('@')) {
+      setState(() => _error = 'Enter your email address first, then tap this again.');
+      return;
+    }
+
+    setState(() {
+      _sendingReset = true;
+      _error = null;
+    });
+
+    try {
+      await ref.read(authRepositoryProvider).resetPassword(email);
+      if (!mounted) return;
+      showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Check your email'),
+          content: Text(
+            'If an account exists for $email, a link to choose a new password '
+            'is on its way. It can take a minute to arrive.',
+          ),
+          actions: [
+            ElevatedButton(
+                onPressed: () => Navigator.pop(context), child: const Text('OK')),
+          ],
+        ),
+      );
+    } on AuthException catch (e) {
+      // The provider caps how many of these it will send per hour; saying
+      // so is far better than appearing to do nothing.
+      final overLimit = e.message.toLowerCase().contains('rate limit') ||
+          e.statusCode == '429';
+      setState(() => _error = overLimit
+          ? 'Too many reset emails have been sent recently. Wait a few minutes '
+              'and try again.'
+          : e.message);
+    } catch (_) {
+      setState(() =>
+          _error = 'Could not send the reset email. Check your connection and try again.');
+    } finally {
+      if (mounted) setState(() => _sendingReset = false);
+    }
   }
 
   Future<void> _submit() async {
@@ -183,19 +237,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             Align(
                               alignment: Alignment.centerRight,
                               child: TextButton(
-                                onPressed: () async {
-                                  if (_emailCtrl.text.trim().isEmpty) return;
-                                  await ref
-                                      .read(authRepositoryProvider)
-                                      .resetPassword(_emailCtrl.text.trim());
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                          content: Text('Password reset email sent.')),
-                                    );
-                                  }
-                                },
-                                child: const Text('Forgot password?'),
+                                onPressed: _sendingReset ? null : _sendReset,
+                                child: _sendingReset
+                                    ? const SizedBox(
+                                        height: 14,
+                                        width: 14,
+                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                      )
+                                    : const Text('Forgot password?'),
                               ),
                             ),
                           if (_usePhone)
