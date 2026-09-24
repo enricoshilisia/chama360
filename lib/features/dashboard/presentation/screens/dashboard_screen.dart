@@ -248,11 +248,15 @@ class _ActiveHome extends ConsumerWidget {
                     style: TextStyle(color: Colors.grey.shade600)),
               );
             }
-            // A taller window can show more without becoming a scroll
-            // marathon, so the desktop column carries a longer feed.
+            // Home shows the last few, not the ledger: the point is
+            // "has anything happened since I last looked", and a dozen
+            // rows pushed the report below them off the screen. The full
+            // list is one tap away behind "See all". A taller window can
+            // carry a few more without becoming a scroll marathon.
+            final shown = list.take(wide ? 10 : 6).toList();
             return Column(
               children: [
-                for (final txn in list.take(wide ? 20 : 12))
+                for (final txn in shown)
                   _ActivityTile(
                     txn: txn,
                     chamaName: chama.name,
@@ -260,6 +264,17 @@ class _ActiveHome extends ConsumerWidget {
                     onTap: () => txn.memberId == null
                         ? context.push('/chamas/${chama.id}')
                         : context.push('/chamas/${chama.id}/members/${txn.memberId}'),
+                  ),
+                if (list.length > shown.length)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: TextButton(
+                      onPressed: () => context.push('/chamas/${chama.id}'),
+                      child: Text(
+                        '${list.length - shown.length} more',
+                        style: const TextStyle(fontSize: 12.5),
+                      ),
+                    ),
                   ),
               ],
             );
