@@ -84,54 +84,61 @@ class _ReportBody extends StatelessWidget {
       );
     }
 
+    // The hero card above already carries the chama's position — what it
+    // holds, what is out on loan, how many members. Repeating that here
+    // wasted the one block with room to answer the question that follows
+    // it: how much has been coming in, and when.
+    final periods = ReportPeriod.values;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: _StatTile(
-                label: 'Total contributed',
-                value: maskable(formatMoney(report.totalContributions), visible),
-                icon: Icons.savings_rounded,
-                color: AppColors.seedDark,
-              ),
+        for (var row = 0; row < 2; row++) ...[
+          if (row > 0) const SizedBox(height: 10),
+          Row(
+            children: [
+              for (var col = 0; col < 2; col++) ...[
+                if (col > 0) const SizedBox(width: 10),
+                Expanded(
+                  child: _StatTile(
+                    label: periods[row * 2 + col].label,
+                    value: maskable(
+                        formatMoney(report.totalFor(periods[row * 2 + col])), visible),
+                    icon: switch (periods[row * 2 + col]) {
+                      ReportPeriod.thisMonth => Icons.today_rounded,
+                      ReportPeriod.thisYear => Icons.calendar_month_rounded,
+                      ReportPeriod.lastYear => Icons.history_rounded,
+                      ReportPeriod.allTime => Icons.savings_rounded,
+                    },
+                    color: periods[row * 2 + col] == ReportPeriod.allTime
+                        ? AppColors.seedDark
+                        : AppColors.accent,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+        if (report.overdueLoanCount > 0) ...[
+          const SizedBox(height: 10),
+          GlassContainer(
+            padding: const EdgeInsets.all(14),
+            borderRadius: 16,
+            child: Row(
+              children: [
+                const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    '${report.overdueLoanCount} loan'
+                    '${report.overdueLoanCount == 1 ? '' : 's'} past the due date',
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _StatTile(
-                label: 'Members',
-                value: '${report.memberCount}',
-                icon: Icons.groups_rounded,
-                color: AppColors.accent,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: _StatTile(
-                label: 'Loans outstanding',
-                value: maskable(formatMoney(report.totalOutstanding), visible),
-                icon: Icons.request_quote_outlined,
-                color: Colors.orange.shade700,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _StatTile(
-                label: report.overdueLoanCount > 0 ? 'Overdue loans' : 'Active loans',
-                value: '${report.overdueLoanCount > 0 ? report.overdueLoanCount : report.activeLoanCount}',
-                icon: report.overdueLoanCount > 0
-                    ? Icons.warning_amber_rounded
-                    : Icons.call_made_rounded,
-                color: report.overdueLoanCount > 0 ? Colors.red : Colors.blue,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
         if (report.monthly.any((m) => m.total > 0)) ...[
           const SizedBox(height: 18),
           Text(report.trendTitle,
@@ -287,8 +294,10 @@ class _MonthlyBarChart extends StatelessWidget {
 }
 
 
-/// What a member is allowed to see of the chama's finances: the pooled
-/// totals, and nothing about who put in what.
+/// A member's own record, over the stretches they are likely to ask
+/// about. The chama's pooled position is on the hero card above, which
+/// gets it from chama_totals(); this block is the one place a member sees
+/// their own figures, and it never shows anyone else's.
 class _MemberSummary extends ConsumerWidget {
   const _MemberSummary({required this.chamaId, required this.visible});
 
@@ -297,52 +306,98 @@ class _MemberSummary extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final totalsAsync = ref.watch(chamaTotalsProvider(chamaId));
+    // A member's report query only returns their own contributions, so
+    // these totals are theirs — which is exactly what is wanted here.
+    final reportAsync = ref.watch(chamaReportProvider(chamaId));
+    final periods = ReportPeriod.values;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('The chama',
+        Text('What you have put in',
             style: Theme.of(context)
                 .textTheme
                 .titleMedium
                 ?.copyWith(fontWeight: FontWeight.w800)),
         const SizedBox(height: 10),
-        totalsAsync.when(
+        reportAsync.when(
           loading: () => const Padding(
             padding: EdgeInsets.symmetric(vertical: 20),
             child: Center(child: CircularProgressIndicator()),
           ),
-          error: (e, _) => Text('Could not load totals: $e'),
-          data: (totals) => Column(
+          error: (e, _) => Text('Could not load your contributions: $e'),
+          data: (report) => Column(
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: _StatTile(
-                      label: 'Pooled contributions',
-                      value: maskable(formatMoney(totals.totalContributions), visible),
-                      icon: Icons.savings_rounded,
-                      color: AppColors.seedDark,
-                    ),
+              for (var row = 0; row < 2; row++) ...[
+                if (row > 0) const SizedBox(height: 10),
+                Row(
+                  children: [
+                    for (var col = 0; col < 2; col++) ...[
+                      if (col > 0) const SizedBox(width: 10),
+                      Expanded(
+                        child: _StatTile(
+                          label: periods[row * 2 + col].label,
+                          value: maskable(
+                              formatMoney(report.totalFor(periods[row * 2 + col])),
+                              visible),
+                          icon: switch (periods[row * 2 + col]) {
+                            ReportPeriod.thisMonth => Icons.today_rounded,
+                            ReportPeriod.thisYear => Icons.calendar_month_rounded,
+                            ReportPeriod.lastYear => Icons.history_rounded,
+                            ReportPeriod.allTime => Icons.savings_rounded,
+                          },
+                          color: periods[row * 2 + col] == ReportPeriod.allTime
+                              ? AppColors.seedDark
+                              : AppColors.accent,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+              if (report.monthly.any((m) => m.total > 0)) ...[
+                const SizedBox(height: 18),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(report.trendTitle,
+                      style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          color: Colors.grey.shade700)),
+                ),
+                const SizedBox(height: 10),
+                GlassContainer(
+                  padding: const EdgeInsets.fromLTRB(12, 20, 16, 8),
+                  child: SizedBox(
+                    height: 160,
+                    child: visible
+                        ? _MonthlyBarChart(monthly: report.monthly)
+                        : Center(
+                            child: Text('Hidden — tap the eye icon above to reveal',
+                                style: TextStyle(
+                                    color: Colors.grey.shade500, fontSize: 12)),
+                          ),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _StatTile(
-                      label: 'Members',
-                      value: '${totals.memberCount}',
-                      icon: Icons.groups_rounded,
-                      color: AppColors.accent,
+                ),
+              ],
+              const SizedBox(height: 14),
+              GlassContainer(
+                child: Row(
+                  children: [
+                    Icon(Icons.lock_outline_rounded,
+                        size: 18, color: Colors.grey.shade500),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'The chama\'s totals are on the card above. What each '
+                        'member individually put in is only visible to the '
+                        'chairperson.',
+                        style: TextStyle(
+                            fontSize: 12.5, color: Colors.grey.shade600, height: 1.4),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              _StatTile(
-                label: 'Loans outstanding across the chama',
-                value: maskable(formatMoney(totals.totalOutstanding), visible),
-                icon: Icons.request_quote_outlined,
-                color: Colors.orange.shade700,
+                  ],
+                ),
               ),
             ],
           ),

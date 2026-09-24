@@ -207,8 +207,7 @@ class _ActiveHome extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _HeroBalanceCard(
-          total: chama.balance,
-          chamaCount: 1,
+          chama: chama,
           visible: balanceVisible,
           onToggleVisible: () =>
               ref.read(balanceVisibleProvider.notifier).state = !balanceVisible,
@@ -425,22 +424,52 @@ class _OfflinePill extends StatelessWidget {
   }
 }
 
-class _HeroBalanceCard extends StatelessWidget {
+/// The headline number on the home screen.
+///
+/// Whose money it is depends on who is looking. A chairperson opening the
+/// app wants the chama's position, not their own contribution — showing
+/// their personal balance under a label like "total" was the fastest way
+/// to make home look like it was reporting the wrong figure. So an admin
+/// leads with what the chama holds and gets their own balance as one of
+/// the smaller figures beneath; a member leads with their own, which is
+/// the only per-person figure they are allowed to see, with the pooled
+/// totals underneath.
+///
+/// The pooled figures come from chama_totals() rather than from any table
+/// read, so a member sees the chama's position without being able to read
+/// anyone else's row.
+class _HeroBalanceCard extends ConsumerWidget {
   const _HeroBalanceCard({
-    required this.total,
-    required this.chamaCount,
+    required this.chama,
     required this.visible,
     required this.onToggleVisible,
   });
 
-  final double total;
-  final int chamaCount;
+  final Chama chama;
   final bool visible;
   final VoidCallback onToggleVisible;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isAdmin = ChamaRole.isAdmin(chama.role);
+    final totals = ref.watch(chamaTotalsProvider(chama.id)).value;
+
+    final headlineLabel = isAdmin ? 'Group savings' : 'Your contributions';
+    final headline = isAdmin ? totals?.totalContributions : chama.balance;
+
+    final stats = <({String label, String value})>[
+      if (isAdmin) ...[
+        (label: 'Out on loan', value: _money(totals?.totalOutstanding)),
+        (label: 'Members', value: totals == null ? '—' : '${totals.memberCount}'),
+        (label: 'Yours', value: _money(chama.balance)),
+      ] else ...[
+        (label: 'Group savings', value: _money(totals?.totalContributions)),
+        (label: 'Out on loan', value: _money(totals?.totalOutstanding)),
+        (label: 'Members', value: totals == null ? '—' : '${totals.memberCount}'),
+      ],
+    ];
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(28),
       child: Stack(
@@ -471,8 +500,9 @@ class _HeroBalanceCard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Total across $chamaCount chama${chamaCount == 1 ? '' : 's'}',
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 13),
+                      headlineLabel,
+                      style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.85), fontSize: 13),
                     ),
                     InkWell(
                       borderRadius: BorderRadius.circular(20),
@@ -492,13 +522,52 @@ class _HeroBalanceCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  visible ? formatMoney(total) : '••••••',
+                  !visible
+                      ? '••••••'
+                      : headline == null
+                          ? '—'
+                          : formatMoney(headline, currency: chama.currency),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 32,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.2,
                   ),
+                ),
+                const SizedBox(height: 18),
+                Divider(color: Colors.white.withValues(alpha: 0.22), height: 1),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    for (var i = 0; i < stats.length; i++)
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              stats[i].label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.72),
+                                fontSize: 11,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              stats[i].value,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
                 ),
               ],
             ),
@@ -512,6 +581,14 @@ class _HeroBalanceCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  /// Hidden with the rest when the eye is off, and a dash rather than a
+  /// confident zero while the figure is still loading.
+  String _money(double? amount) {
+    if (!visible) return '••••';
+    if (amount == null) return '—';
+    return formatMoneyCompact(amount, currency: chama.currency);
   }
 }
 
