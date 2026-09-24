@@ -378,6 +378,19 @@ class _QuickActions extends ConsumerWidget {
             onTap: () => context.push('/chamas/${chama.id}/loans'),
           ),
         ),
+        // Putting a chama's back history in is a one-off job, but it is
+        // the first thing a new chairperson needs and they should not
+        // have to go looking for it.
+        if (canRecord) ...[
+          const SizedBox(width: 10),
+          Expanded(
+            child: _ActionChip(
+              icon: Icons.table_chart_outlined,
+              label: 'Sheets',
+              onTap: () => context.push('/chamas/${chama.id}/sheets'),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -397,15 +410,19 @@ class _ActionChip extends StatelessWidget {
       borderRadius: BorderRadius.circular(16),
       onTap: onTap,
       child: GlassContainer(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
         borderRadius: 16,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(icon, size: 18, color: primary),
             const SizedBox(width: 8),
-            Text(label,
-                style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700)),
+            Flexible(
+              child: Text(label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700)),
+            ),
           ],
         ),
       ),
