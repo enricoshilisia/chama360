@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/constants/chama_roles.dart';
 import '../../../../core/theme/layout.dart';
 import '../../../../core/utils/currency.dart';
+import '../../../../core/utils/transaction_display.dart';
 import '../../../../core/utils/phone_identity.dart';
 import '../../../../core/widgets/glass_container.dart';
 import '../../../loans/domain/models/loan.dart';
@@ -359,14 +360,9 @@ class _HistoryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isCredit = txn.type == 'contribution' || txn.type == 'loan_disbursement';
-    final icon = switch (txn.type) {
-      'contribution' => Icons.savings_rounded,
-      'loan_disbursement' => Icons.call_made_rounded,
-      'loan_repayment' => Icons.call_received_rounded,
-      'penalty' => Icons.warning_amber_rounded,
-      _ => Icons.swap_horiz_rounded,
-    };
+    final display = TransactionDisplay.of(txn.type, txn.amount);
+    final isCredit = display.isCredit;
+    final icon = display.icon;
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
@@ -374,12 +370,12 @@ class _HistoryTile extends StatelessWidget {
           backgroundColor: (isCredit ? Colors.green : Colors.orange).withValues(alpha: 0.15),
           child: Icon(icon, color: isCredit ? Colors.green : Colors.orange, size: 20),
         ),
-        title: Text(txn.type.replaceAll('_', ' ').toUpperCase(),
+        title: Text(display.label,
             style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
         subtitle: Text('${txn.createdAt.toLocal()}'.split(' ').first,
             style: const TextStyle(fontSize: 11.5)),
         trailing: Text(
-          '${isCredit ? '+' : '-'}${formatMoney(txn.amount, currency: currency)}',
+          '${isCredit ? '+' : '-'}${formatMoney(txn.amount.abs(), currency: currency)}',
           style: TextStyle(
             fontWeight: FontWeight.bold,
             color: isCredit ? Colors.green.shade700 : Colors.orange.shade800,

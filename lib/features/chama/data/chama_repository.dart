@@ -304,4 +304,22 @@ class ChamaRepository {
       'recorded_by': _client.auth.currentUser!.id,
     });
   }
+
+  /// Undoes a contribution by posting the opposite entry rather than
+  /// deleting the row — see reverse_contribution() in
+  /// 0008_reverse_contribution.sql. The member's balance is corrected and
+  /// the original stays on the record, marked reversed with the reason.
+  ///
+  /// Deliberately online-only: a reversal changes a balance that other
+  /// people are reading, and queueing it offline would leave the wrong
+  /// figure standing for an unknown length of time.
+  Future<void> reverseContribution({
+    required String contributionId,
+    required String reason,
+  }) async {
+    await _client.rpc('reverse_contribution', params: {
+      'p_contribution_id': contributionId,
+      'p_reason': reason,
+    });
+  }
 }

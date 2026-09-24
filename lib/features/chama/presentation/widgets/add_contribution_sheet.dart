@@ -187,7 +187,11 @@ class _AddContributionSheetState extends ConsumerState<AddContributionSheet> {
                           final picked = await showDatePicker(
                             context: context,
                             initialDate: _date,
-                            firstDate: DateTime.now().subtract(const Duration(days: 365 * 3)),
+                            // Chamas joining the app bring years of paper
+                            // records with them, so the picker has to reach
+                            // back far enough to enter that whole history —
+                            // a rolling three-year window cut most of it off.
+                            firstDate: DateTime(2015, 1, 1),
                             lastDate: DateTime.now(),
                           );
                           if (picked != null) setState(() => _date = picked);

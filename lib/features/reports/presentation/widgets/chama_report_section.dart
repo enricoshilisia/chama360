@@ -2,7 +2,6 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 
 import '../../../../core/constants/chama_roles.dart';
 import '../../../../core/services/privacy_provider.dart';
@@ -13,8 +12,9 @@ import '../../../chama/presentation/providers/chama_providers.dart';
 import '../../domain/models/chama_report.dart';
 import '../providers/reports_providers.dart';
 
-/// The dashboard's "Reports" block — fund overview, a 6-month contribution
-/// trend, top contributors, and loan book health. Everything a chairperson
+/// The dashboard's "Reports" block — fund overview, the contribution trend
+/// over whatever period the chama's records actually cover, top
+/// contributors, and loan book health. Everything a chairperson
 /// would want to glance at without leaving the home screen. [visible]
 /// mirrors the hero balance card's peek toggle so every money figure here
 /// hides consistently, not just the top-line total.
@@ -134,7 +134,7 @@ class _ReportBody extends StatelessWidget {
         ),
         if (report.monthly.any((m) => m.total > 0)) ...[
           const SizedBox(height: 18),
-          Text('Contributions, last 6 months',
+          Text(report.trendTitle,
               style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.grey.shade700)),
           const SizedBox(height: 10),
           GlassContainer(
@@ -240,7 +240,7 @@ class _MonthlyBarChart extends StatelessWidget {
         barTouchData: BarTouchData(
           touchTooltipData: BarTouchTooltipData(
             getTooltipItem: (group, groupIndex, rod, rodIndex) => BarTooltipItem(
-              formatMoney(rod.toY),
+              '${monthly[group.x].fullLabel}\n${formatMoney(rod.toY)}',
               const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
             ),
           ),
@@ -259,7 +259,7 @@ class _MonthlyBarChart extends StatelessWidget {
                 return Padding(
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(
-                    DateFormat('MMM').format(monthly[i].month),
+                    monthly[i].label,
                     style: TextStyle(fontSize: 10.5, color: Colors.grey.shade600),
                   ),
                 );

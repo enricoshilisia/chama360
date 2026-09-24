@@ -15,6 +15,7 @@ import '../../../loans/domain/models/loan.dart';
 import '../../../loans/presentation/providers/loans_providers.dart';
 import '../../domain/models/chama_report.dart';
 import '../providers/reports_providers.dart';
+import '../widgets/reverse_contribution_sheet.dart';
 
 /// The chama's full record, as opposed to the home screen's overview:
 /// every contribution, who made it and when, each member's standing, and
@@ -100,7 +101,12 @@ class _ChamaReportScreenState extends ConsumerState<ChamaReportScreen>
                     currency: currency,
                     chamaId: widget.chamaId,
                   ),
-                  _ContributionsTab(report: report, currency: currency),
+                  _ContributionsTab(
+                    report: report,
+                    currency: currency,
+                    chamaId: widget.chamaId,
+                    canReverse: isAdmin,
+                  ),
                   _BorrowingTab(
                     chamaId: widget.chamaId,
                     currency: currency,
@@ -207,7 +213,7 @@ class _OverviewTab extends ConsumerWidget {
           ),
         ],
         const SizedBox(height: 22),
-        Text('Contributions by month',
+        Text(report.trendTitle,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800)),
         const SizedBox(height: 10),
         GlassContainer(
@@ -310,12 +316,33 @@ class _MembersTab extends StatelessWidget {
         .map((m) => m.total)
         .fold<double>(0, (a, b) => a > b ? a : b);
 
+    // Said out loud, because a column of names with zeroes against them
+    // reads as a broken report otherwise. Every active member is here,
+    // whether or not they have ever put anything in.
+    final yetToContribute = report.memberBreakdown.where((m) => m.count == 0).length;
+
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, kShellBottomInset),
-      itemCount: report.memberBreakdown.length,
+      itemCount: report.memberBreakdown.length + 1,
       separatorBuilder: (_, _) => const SizedBox(height: 10),
-      itemBuilder: (context, i) {
-        final m = report.memberBreakdown[i];
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 2),
+            child: Text(
+              '${report.memberBreakdown.length} active member'
+              '${report.memberBreakdown.length == 1 ? '' : 's'}'
+              '${yetToContribute == 0 ? '' : ' · $yetToContribute yet to contribute'}',
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade600,
+              ),
+            ),
+          );
+        }
+
+        final m = report.memberBreakdown[index - 1];
         final fraction = highest <= 0 ? 0.0 : (m.total / highest).clamp(0.0, 1.0);
         final primary = Theme.of(context).colorScheme.primary;
 
@@ -373,10 +400,17 @@ class _MembersTab extends StatelessWidget {
 // ----------------------------------------------------------- Contributions
 
 class _ContributionsTab extends StatelessWidget {
-  const _ContributionsTab({required this.report, required this.currency});
+  const _ContributionsTab({
+    required this.report,
+    required this.currency,
+    required this.chamaId,
+    required this.canReverse,
+  });
 
   final ChamaReport report;
   final String currency;
+  final String chamaId;
+  final bool canReverse;
 
   @override
   Widget build(BuildContext context) {
@@ -407,8 +441,12 @@ class _ContributionsTab extends StatelessWidget {
                     style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
                 const Spacer(),
                 Text(
+                  // Reversed entries are still listed, but they are not
+                  // money the chama holds, so they don't count here.
                   formatMoney(
-                    entry.value.fold<double>(0, (sum, e) => sum + e.amount),
+                    entry.value
+                        .where((e) => !e.isReversed)
+                        .fold<double>(0, (sum, e) => sum + e.amount),
                     currency: currency,
                   ),
                   style: TextStyle(
@@ -425,20 +463,46 @@ class _ContributionsTab extends StatelessWidget {
               margin: const EdgeInsets.only(bottom: 8),
               child: ListTile(
                 dense: true,
+                onTap: () => showContributionSheet(
+                  context,
+                  chamaId: chamaId,
+                  entry: e,
+                  currency: currency,
+                  canReverse: canReverse,
+                ),
                 leading: CircleAvatar(
                   radius: 16,
-                  backgroundColor: Colors.green.withValues(alpha: 0.15),
-                  child: const Icon(Icons.savings_rounded, size: 16, color: Colors.green),
+                  backgroundColor: (e.isReversed ? Colors.grey : Colors.green)
+                      .withValues(alpha: 0.15),
+                  child: Icon(e.isReversed ? Icons.undo_rounded : Icons.savings_rounded,
+                      size: 16, color: e.isReversed ? Colors.grey : Colors.green),
                 ),
                 title: Text(e.memberName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                subtitle: Text(DateFormat('EEE, d MMM yyyy').format(e.date),
-                    style: const TextStyle(fontSize: 11.5)),
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: e.isReversed ? Colors.grey : null,
+                    )),
+                subtitle: Text(
+                  e.isReversed
+                      ? 'Reversed · ${e.reversalReason ?? 'no reason recorded'}'
+                      : DateFormat('EEE, d MMM yyyy').format(e.date),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: e.isReversed ? Colors.orange.shade800 : null,
+                  ),
+                ),
                 trailing: Text(
                   formatMoney(e.amount, currency: currency),
-                  style: const TextStyle(fontWeight: FontWeight.w700),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: e.isReversed ? Colors.grey : null,
+                    decoration: e.isReversed ? TextDecoration.lineThrough : null,
+                  ),
                 ),
               ),
             ),
@@ -506,7 +570,7 @@ class _MonthlyChart extends StatelessWidget {
         barTouchData: BarTouchData(
           touchTooltipData: BarTouchTooltipData(
             getTooltipItem: (group, groupIndex, rod, rodIndex) => BarTooltipItem(
-              '${DateFormat('MMM yyyy').format(monthly[group.x].month)}\n'
+              '${monthly[group.x].fullLabel}\n'
               '${formatMoney(rod.toY, currency: currency)}',
               const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
             ),
@@ -526,7 +590,7 @@ class _MonthlyChart extends StatelessWidget {
                 return Padding(
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(
-                    DateFormat('MMM').format(monthly[i].month),
+                    monthly[i].label,
                     style: TextStyle(fontSize: 10.5, color: Colors.grey.shade600),
                   ),
                 );

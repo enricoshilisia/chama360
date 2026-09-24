@@ -1,9 +1,23 @@
-/// One month's total contributions — powers the trend chart.
+/// One bucket of the trend chart. Buckets are months for a chama whose
+/// history fits in a year or so, and years for one that has been entering
+/// several years of back records — a fixed six-month window showed an
+/// empty chart to exactly the chamas with the most history.
 class MonthlyTotal {
-  const MonthlyTotal({required this.month, required this.total});
+  const MonthlyTotal({
+    required this.month,
+    required this.total,
+    required this.label,
+    required this.fullLabel,
+  });
 
   final DateTime month; // normalized to the 1st of the month
   final double total;
+
+  /// Short axis label — 'Jan' for a month, '2023' for a year.
+  final String label;
+
+  /// What the tooltip says — 'Jan 2026', or just '2023'.
+  final String fullLabel;
 }
 
 /// A member ranked by how much they've contributed in total.
@@ -18,16 +32,28 @@ class ContributorTotal {
 /// report lists these; the home summary never does.
 class ContributionEntry {
   const ContributionEntry({
+    required this.id,
     required this.memberId,
     required this.memberName,
     required this.amount,
     required this.date,
+    this.notes,
+    this.isReversed = false,
+    this.reversalReason,
   });
 
+  final String id;
   final String memberId;
   final String memberName;
   final double amount;
   final DateTime date;
+  final String? notes;
+
+  /// A reversed contribution still appears in the list — struck through,
+  /// with the reason — because hiding a corrected mistake is how a ledger
+  /// stops being trustworthy. It counts towards no total.
+  final bool isReversed;
+  final String? reversalReason;
 }
 
 /// A repayment as it happened: who paid back, how much, when. Kept
@@ -82,6 +108,7 @@ class ChamaReport {
     required this.overdueLoanCount,
     required this.monthly,
     required this.topContributors,
+    this.trendTitle = 'Contributions by month',
     this.entries = const [],
     this.memberBreakdown = const [],
     this.repayments = const [],
@@ -95,6 +122,10 @@ class ChamaReport {
   final int overdueLoanCount;
   final List<MonthlyTotal> monthly;
   final List<ContributorTotal> topContributors;
+
+  /// Names the period the chart actually covers, since that now depends on
+  /// how far back the chama's records go.
+  final String trendTitle;
 
   /// Every contribution, newest first. Only the full report screen reads
   /// these; the home summary works off the aggregates above.

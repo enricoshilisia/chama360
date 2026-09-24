@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/layout.dart';
 import '../../../../core/utils/currency.dart';
+import '../../../../core/utils/transaction_display.dart';
 import '../../../../core/widgets/glass_container.dart';
 import '../../domain/models/chama_transaction.dart';
 import '../providers/chama_providers.dart';
@@ -151,14 +152,9 @@ class _TxnTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isCredit = txn.type == 'contribution' || txn.type == 'loan_disbursement';
-    final icon = switch (txn.type) {
-      'contribution' => Icons.savings_rounded,
-      'loan_disbursement' => Icons.call_made_rounded,
-      'loan_repayment' => Icons.call_received_rounded,
-      'penalty' => Icons.warning_amber_rounded,
-      _ => Icons.swap_horiz_rounded,
-    };
+    final display = TransactionDisplay.of(txn.type, txn.amount);
+    final isCredit = display.isCredit;
+    final icon = display.icon;
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       child: ListTile(
@@ -168,7 +164,7 @@ class _TxnTile extends StatelessWidget {
               (isCredit ? Colors.green : Colors.orange).withValues(alpha: 0.15),
           child: Icon(icon, color: isCredit ? Colors.green : Colors.orange, size: 20),
         ),
-        title: Text(txn.type.replaceAll('_', ' ').toUpperCase(),
+        title: Text(display.label,
             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
         subtitle: Text(
           [
@@ -178,7 +174,7 @@ class _TxnTile extends StatelessWidget {
           style: const TextStyle(fontSize: 11.5),
         ),
         trailing: Text(
-          '${isCredit ? '+' : '-'}${formatMoney(txn.amount, currency: currency)}',
+          '${isCredit ? '+' : '-'}${formatMoney(txn.amount.abs(), currency: currency)}',
           style: TextStyle(
             fontWeight: FontWeight.bold,
             color: isCredit ? Colors.green.shade700 : Colors.orange.shade800,

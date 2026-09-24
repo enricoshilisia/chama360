@@ -9,6 +9,7 @@ import '../../../../core/theme/breakpoints.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/layout.dart';
 import '../../../../core/utils/currency.dart';
+import '../../../../core/utils/transaction_display.dart';
 import '../../../../core/utils/display_name.dart';
 import '../../../../core/widgets/glass_container.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
@@ -529,14 +530,9 @@ class _ActivityTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isCredit = txn.type == 'contribution' || txn.type == 'loan_disbursement';
-    final icon = switch (txn.type) {
-      'contribution' => Icons.savings_rounded,
-      'loan_disbursement' => Icons.call_made_rounded,
-      'loan_repayment' => Icons.call_received_rounded,
-      'penalty' => Icons.warning_amber_rounded,
-      _ => Icons.swap_horiz_rounded,
-    };
+    final display = TransactionDisplay.of(txn.type, txn.amount);
+    final isCredit = display.isCredit;
+    final icon = display.icon;
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: InkWell(
@@ -557,7 +553,7 @@ class _ActivityTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(txn.type.replaceAll('_', ' ').toUpperCase(),
+                    Text(display.label,
                         style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
                     const SizedBox(height: 2),
                     Text(
@@ -573,7 +569,9 @@ class _ActivityTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    visible ? '${isCredit ? '+' : '-'}${formatMoney(txn.amount)}' : '••••',
+                    visible
+                        ? '${isCredit ? '+' : '-'}${formatMoney(txn.amount.abs())}'
+                        : '••••',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: isCredit ? Colors.green.shade700 : Colors.orange.shade800,
