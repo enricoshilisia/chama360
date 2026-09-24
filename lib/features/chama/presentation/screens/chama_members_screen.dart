@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/constants/chama_roles.dart';
 import '../../../../core/theme/layout.dart';
 import '../../../../core/utils/currency.dart';
+import '../../../../core/widgets/glass_container.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../domain/models/chama_member.dart';
 import '../providers/chama_providers.dart';
@@ -57,9 +58,16 @@ class ChamaMembersScreen extends ConsumerWidget {
         error: (e, _) => Center(child: Text('Error: $e')),
         data: (members) => ListView.separated(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, kShellBottomInset),
-          itemCount: members.length,
+          // The spreadsheet route belongs where the roster is: a chairperson
+          // putting a chama's history in is looking at this list when they
+          // realise they are not going to type it all one modal at a time.
+          itemCount: members.length + (isAdmin ? 1 : 0),
           separatorBuilder: (_, _) => const SizedBox(height: 8),
-          itemBuilder: (context, i) {
+          itemBuilder: (context, index) {
+            if (isAdmin && index == 0) {
+              return _SheetsShortcut(chamaId: chamaId);
+            }
+            final i = isAdmin ? index - 1 : index;
             final m = members[i];
             final isSelf = m.isSelf || (m.userId != null && m.userId == myUserId);
 
@@ -178,6 +186,56 @@ class _MemberMenu extends ConsumerWidget {
         PopupMenuItem(value: 'role', child: Text('Change role')),
         PopupMenuItem(value: 'remove', child: Text('Remove from chama')),
       ],
+    );
+  }
+}
+
+/// Sits at the top of the roster for admins: the way into exporting a
+/// workbook of the chama's members and uploading their contribution
+/// history back in.
+class _SheetsShortcut extends StatelessWidget {
+  const _SheetsShortcut({required this.chamaId});
+
+  final String chamaId;
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: () => context.push('/chamas/$chamaId/sheets'),
+      child: GlassContainer(
+        padding: const EdgeInsets.all(14),
+        borderRadius: 18,
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 18,
+              backgroundColor: primary.withValues(alpha: 0.14),
+              child: Icon(Icons.table_chart_outlined, size: 18, color: primary),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Contribution sheets',
+                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Export a tab per member in Excel, fill in past contributions '
+                    'and upload them back',
+                    style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600, height: 1.35),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(Icons.chevron_right_rounded, color: Colors.grey.shade500),
+          ],
+        ),
+      ),
     );
   }
 }

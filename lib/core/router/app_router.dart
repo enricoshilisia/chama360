@@ -6,6 +6,7 @@ import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/chama/presentation/screens/add_member_screen.dart';
 import '../../features/chama/presentation/screens/chama_detail_screen.dart';
 import '../../features/chama/presentation/screens/chama_members_screen.dart';
+import '../../features/chama/presentation/screens/contribution_sheets_screen.dart';
 import '../../features/chama/presentation/screens/join_chama_screen.dart';
 import '../../features/chama/presentation/screens/member_detail_screen.dart';
 import '../../features/chama/presentation/screens/members_tab_screen.dart';
@@ -125,6 +126,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                       pageBuilder: (context, state) => fadeThroughPage(
                         state: state,
                         child: ChamaReportScreen(chamaId: state.pathParameters['id']!),
+                      ),
+                    ),
+                    GoRoute(
+                      path: 'sheets',
+                      pageBuilder: (context, state) => fadeThroughPage(
+                        state: state,
+                        child: ContributionSheetsScreen(
+                            chamaId: state.pathParameters['id']!),
                       ),
                     ),
                     GoRoute(

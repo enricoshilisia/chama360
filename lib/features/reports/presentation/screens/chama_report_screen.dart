@@ -63,6 +63,14 @@ class _ChamaReportScreenState extends ConsumerState<ChamaReportScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('Reports'),
+        actions: [
+          if (isAdmin)
+            IconButton(
+              tooltip: 'Contribution sheets',
+              icon: const Icon(Icons.table_chart_outlined),
+              onPressed: () => context.push('/chamas/${widget.chamaId}/sheets'),
+            ),
+        ],
         bottom: isAdmin
             ? TabBar(
                 controller: controller,
@@ -212,6 +220,37 @@ class _OverviewTab extends ConsumerWidget {
             ),
           ),
         ],
+        if (isAdmin) ...[
+          const SizedBox(height: 22),
+          Text('What came in, and when',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleSmall
+                  ?.copyWith(fontWeight: FontWeight.w800)),
+          const SizedBox(height: 10),
+          GlassContainer(
+            child: Column(
+              children: [
+                for (var i = 0; i < ReportPeriod.values.length; i++) ...[
+                  if (i > 0) const Divider(height: 18),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(ReportPeriod.values[i].label,
+                            style: const TextStyle(fontSize: 13)),
+                      ),
+                      Text(
+                        formatMoney(report.totalFor(ReportPeriod.values[i]),
+                            currency: currency),
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
         const SizedBox(height: 22),
         Text(report.trendTitle,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800)),
@@ -291,7 +330,7 @@ class _OverviewTab extends ConsumerWidget {
 
 // ----------------------------------------------------------------- Members
 
-class _MembersTab extends StatelessWidget {
+class _MembersTab extends StatefulWidget {
   const _MembersTab({
     required this.report,
     required this.currency,
@@ -303,46 +342,80 @@ class _MembersTab extends StatelessWidget {
   final String chamaId;
 
   @override
+  State<_MembersTab> createState() => _MembersTabState();
+}
+
+class _MembersTabState extends State<_MembersTab> {
+  ReportPeriod _period = ReportPeriod.allTime;
+
+  @override
   Widget build(BuildContext context) {
+    final report = widget.report;
+    final currency = widget.currency;
+    final chamaId = widget.chamaId;
+
     if (report.memberBreakdown.isEmpty) {
       return Center(
         child: Text('No members yet', style: TextStyle(color: Colors.grey.shade600)),
       );
     }
 
-    // Bars are drawn relative to the highest contributor, so the column
-    // reads as a ranking at a glance rather than as absolute amounts.
-    final highest = report.memberBreakdown
-        .map((m) => m.total)
-        .fold<double>(0, (a, b) => a > b ? a : b);
+    final breakdown = report.breakdownFor(_period);
+
+    // Bars are drawn relative to the highest contributor in the period on
+    // show, so the column reads as a ranking at a glance rather than as
+    // absolute amounts.
+    final highest =
+        breakdown.map((m) => m.total).fold<double>(0, (a, b) => a > b ? a : b);
 
     // Said out loud, because a column of names with zeroes against them
     // reads as a broken report otherwise. Every active member is here,
-    // whether or not they have ever put anything in.
-    final yetToContribute = report.memberBreakdown.where((m) => m.count == 0).length;
+    // whether or not they put anything in over this stretch.
+    final yetToContribute = breakdown.where((m) => m.count == 0).length;
+    final noun = _period == ReportPeriod.allTime ? 'yet to contribute' : 'nothing this period';
 
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, kShellBottomInset),
-      itemCount: report.memberBreakdown.length + 1,
+      itemCount: breakdown.length + 1,
       separatorBuilder: (_, _) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
         if (index == 0) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 2),
-            child: Text(
-              '${report.memberBreakdown.length} active member'
-              '${report.memberBreakdown.length == 1 ? '' : 's'}'
-              '${yetToContribute == 0 ? '' : ' · $yetToContribute yet to contribute'}',
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey.shade600,
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (final p in ReportPeriod.values)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ChoiceChip(
+                          label: Text(p.label),
+                          selected: _period == p,
+                          onSelected: (_) => setState(() => _period = p),
+                        ),
+                      ),
+                  ],
+                ),
               ),
-            ),
+              const SizedBox(height: 10),
+              Text(
+                '${breakdown.length} active member'
+                '${breakdown.length == 1 ? '' : 's'}'
+                ' · ${formatMoney(report.totalFor(_period), currency: currency)}'
+                '${yetToContribute == 0 ? '' : ' · $yetToContribute $noun'}',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+            ],
           );
         }
 
-        final m = report.memberBreakdown[index - 1];
+        final m = breakdown[index - 1];
         final fraction = highest <= 0 ? 0.0 : (m.total / highest).clamp(0.0, 1.0);
         final primary = Theme.of(context).colorScheme.primary;
 
@@ -380,7 +453,9 @@ class _MembersTab extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   m.count == 0
-                      ? 'No contributions yet'
+                      ? (_period == ReportPeriod.allTime
+                          ? 'No contributions yet'
+                          : 'Nothing in ${_period.label.toLowerCase()}')
                       : '${m.count} contribution${m.count == 1 ? '' : 's'}'
                           '${m.lastDate == null ? '' : ' · last on ${DateFormat('d MMM yyyy').format(m.lastDate!)}'}',
                   style: TextStyle(

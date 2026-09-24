@@ -20,6 +20,30 @@ class MonthlyTotal {
   final String fullLabel;
 }
 
+/// The stretches of time a chairperson actually asks about. Every one of
+/// these is computed from the same contribution list, so a chama that has
+/// just imported three years of history can see what any of those years
+/// came to without a second query.
+enum ReportPeriod {
+  thisMonth('This month'),
+  thisYear('This year'),
+  lastYear('Last year'),
+  allTime('All time');
+
+  const ReportPeriod(this.label);
+  final String label;
+
+  bool contains(DateTime date, {DateTime? now}) {
+    final today = now ?? DateTime.now();
+    return switch (this) {
+      ReportPeriod.thisMonth => date.year == today.year && date.month == today.month,
+      ReportPeriod.thisYear => date.year == today.year,
+      ReportPeriod.lastYear => date.year == today.year - 1,
+      ReportPeriod.allTime => true,
+    };
+  }
+}
+
 /// A member ranked by how much they've contributed in total.
 class ContributorTotal {
   const ContributorTotal({required this.name, required this.total});
@@ -138,6 +162,51 @@ class ChamaReport {
 
   /// Every loan repayment, newest first.
   final List<RepaymentEntry> repayments;
+
+  /// What came in over [period], across the whole chama.
+  double totalFor(ReportPeriod period) {
+    if (period == ReportPeriod.allTime) return totalContributions;
+    final now = DateTime.now();
+    return entries
+        .where((e) => !e.isReversed && period.contains(e.date, now: now))
+        .fold<double>(0, (sum, e) => sum + e.amount);
+  }
+
+  /// The same breakdown as [memberBreakdown], narrowed to [period] and
+  /// re-ranked. Every active member is still in the list, including those
+  /// who put nothing in during that stretch — which for a period view is
+  /// the whole question.
+  List<MemberContribution> breakdownFor(ReportPeriod period) {
+    if (period == ReportPeriod.allTime) return memberBreakdown;
+
+    final now = DateTime.now();
+    final totals = <String, double>{};
+    final counts = <String, int>{};
+    final last = <String, DateTime>{};
+
+    for (final e in entries) {
+      if (e.isReversed || !period.contains(e.date, now: now)) continue;
+      totals[e.memberId] = (totals[e.memberId] ?? 0) + e.amount;
+      counts[e.memberId] = (counts[e.memberId] ?? 0) + 1;
+      final seen = last[e.memberId];
+      if (seen == null || e.date.isAfter(seen)) last[e.memberId] = e.date;
+    }
+
+    final out = [
+      for (final m in memberBreakdown)
+        MemberContribution(
+          memberId: m.memberId,
+          name: m.name,
+          total: totals[m.memberId] ?? 0,
+          count: counts[m.memberId] ?? 0,
+          lastDate: last[m.memberId],
+        ),
+    ]..sort((a, b) {
+        final byTotal = b.total.compareTo(a.total);
+        return byTotal != 0 ? byTotal : a.name.compareTo(b.name);
+      });
+    return out;
+  }
 
   static const empty = ChamaReport(
     totalContributions: 0,

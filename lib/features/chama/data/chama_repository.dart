@@ -305,6 +305,28 @@ class ChamaRepository {
     });
   }
 
+  /// Writes a whole spreadsheet of back-dated contributions in one
+  /// transaction — see import_contributions() in
+  /// 0009_import_contributions.sql. Either the file lands or none of it
+  /// does, identical rows already on the system are skipped rather than
+  /// doubling anyone's total, and the per-contribution notification is
+  /// suppressed for the duration so nobody wakes up to three years of
+  /// alerts.
+  Future<({int inserted, int duplicates})> importContributions({
+    required String chamaId,
+    required List<Map<String, Object?>> rows,
+  }) async {
+    final result = await _client.rpc('import_contributions', params: {
+      'p_chama_id': chamaId,
+      'p_rows': rows,
+    });
+    final row = (result as List).first as Map<String, dynamic>;
+    return (
+      inserted: (row['inserted'] as num?)?.toInt() ?? 0,
+      duplicates: (row['duplicates'] as num?)?.toInt() ?? 0,
+    );
+  }
+
   /// Undoes a contribution by posting the opposite entry rather than
   /// deleting the row — see reverse_contribution() in
   /// 0008_reverse_contribution.sql. The member's balance is corrected and
