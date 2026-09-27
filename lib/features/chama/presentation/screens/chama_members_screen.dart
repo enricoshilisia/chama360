@@ -83,91 +83,99 @@ class _ChamaMembersScreenState extends ConsumerState<ChamaMembersScreen> {
               ? all
               : all.where((m) => m.displayName.toLowerCase().contains(q)).toList();
 
-          return ListView.separated(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, kShellBottomInset),
-          itemCount: members.length + 1 + (members.isEmpty ? 1 : 0),
-          separatorBuilder: (_, _) => const SizedBox(height: 8),
-          itemBuilder: (context, index) {
-            if (index == 0) {
-              return Column(
-                children: [
-                  TextField(
-                    controller: _searchCtrl,
-                    onChanged: (v) => setState(() => _query = v),
-                    textInputAction: TextInputAction.search,
-                    decoration: InputDecoration(
-                      hintText: 'Search ${all.length} members',
-                      prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                      isDense: true,
-                      suffixIcon: _query.isEmpty
-                          ? null
-                          : IconButton(
-                              icon: const Icon(Icons.close_rounded, size: 18),
-                              onPressed: () {
-                                _searchCtrl.clear();
-                                setState(() => _query = '');
-                              },
-                            ),
-                    ),
+          // The search box sits outside the scroll view, so it stays put
+          // while a long roster moves under it — scrolling to the top to
+          // change what you are looking for is the thing a search box is
+          // meant to save you from.
+          return Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+                child: TextField(
+                  controller: _searchCtrl,
+                  onChanged: (v) => setState(() => _query = v),
+                  textInputAction: TextInputAction.search,
+                  decoration: InputDecoration(
+                    hintText: 'Search ${all.length} members',
+                    prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                    isDense: true,
+                    filled: true,
+                    suffixIcon: _query.isEmpty
+                        ? null
+                        : IconButton(
+                            icon: const Icon(Icons.close_rounded, size: 18),
+                            onPressed: () {
+                              _searchCtrl.clear();
+                              setState(() => _query = '');
+                            },
+                          ),
                   ),
-                  const SizedBox(height: 8),
-                  // The spreadsheet route belongs where the roster is: a
-                  // chairperson putting a chama's history in is looking at
-                  // this list when they realise they are not going to type
-                  // it all one modal at a time.
-                  if (isAdmin) _SheetsShortcut(chamaId: chamaId),
-                ],
-              );
-            }
-            if (members.isEmpty) {
-              return Padding(
-                padding: const EdgeInsets.only(top: 32),
-                child: Center(
-                  child: Text('No member matches "${_query.trim()}"',
-                      style: TextStyle(color: Colors.grey.shade600)),
-                ),
-              );
-            }
-            final m = members[index - 1];
-            final isSelf = m.isSelf || (m.userId != null && m.userId == myUserId);
-
-            // A member can only open their own record; everyone else is
-            // just a name on the list to them.
-            final canOpen = isAdmin || m.isSelf;
-            final isSelected = selectedMemberId == m.id;
-
-            return Card(
-              color: isSelected
-                  ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.10)
-                  : null,
-              child: ListTile(
-                selected: isSelected,
-                onTap: !canOpen
-                    ? null
-                    : onSelect != null
-                        ? () => onSelect!(m.id)
-                        : () => context.push('/chamas/$chamaId/members/${m.id}'),
-                leading: CircleAvatar(child: Text(m.displayName.substring(0, 1).toUpperCase())),
-                title: Text(m.displayName),
-                subtitle: Text(
-                  ChamaRole.label(m.role) +
-                      (isSelf ? ' (you)' : '') +
-                      (m.hasAccount ? '' : ' · no app access'),
-                ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (m.balance != null)
-                      Text(formatMoney(m.balance!),
-                          style: const TextStyle(fontWeight: FontWeight.w600))
-                    else if (canOpen)
-                      const Icon(Icons.chevron_right_rounded, size: 20),
-                    if (isAdmin && !isSelf) _MemberMenu(chamaId: chamaId, member: m),
-                  ],
                 ),
               ),
-            );
-          },
+              if (members.isEmpty)
+                Expanded(
+                  child: Center(
+                    child: Text('No member matches "${_query.trim()}"',
+                        style: TextStyle(color: Colors.grey.shade600)),
+                  ),
+                )
+              else
+                Expanded(
+                  child: ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, kShellBottomInset),
+                    itemCount: members.length + (isAdmin ? 1 : 0),
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
+                    itemBuilder: (context, index) {
+                      // The spreadsheet route belongs where the roster is: a
+                      // chairperson putting a chama's history in is looking at this
+                      // list when they realise they are not going to type it all one
+                      // modal at a time. It scrolls away; the search does not.
+                      if (isAdmin && index == 0) {
+                        return _SheetsShortcut(chamaId: chamaId);
+                      }
+                      final m = members[isAdmin ? index - 1 : index];
+                      final isSelf = m.isSelf || (m.userId != null && m.userId == myUserId);
+
+                      // A member can only open their own record; everyone else is
+                      // just a name on the list to them.
+                      final canOpen = isAdmin || m.isSelf;
+                      final isSelected = selectedMemberId == m.id;
+
+                      return Card(
+                        color: isSelected
+                            ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.10)
+                            : null,
+                        child: ListTile(
+                          selected: isSelected,
+                          onTap: !canOpen
+                              ? null
+                              : onSelect != null
+                                  ? () => onSelect!(m.id)
+                                  : () => context.push('/chamas/$chamaId/members/${m.id}'),
+                          leading: CircleAvatar(child: Text(m.displayName.substring(0, 1).toUpperCase())),
+                          title: Text(m.displayName),
+                          subtitle: Text(
+                            ChamaRole.label(m.role) +
+                                (isSelf ? ' (you)' : '') +
+                                (m.hasAccount ? '' : ' · no app access'),
+                          ),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (m.balance != null)
+                                Text(formatMoney(m.balance!),
+                                    style: const TextStyle(fontWeight: FontWeight.w600))
+                              else if (canOpen)
+                                const Icon(Icons.chevron_right_rounded, size: 20),
+                              if (isAdmin && !isSelf) _MemberMenu(chamaId: chamaId, member: m),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+            ],
           );
         },
       ),

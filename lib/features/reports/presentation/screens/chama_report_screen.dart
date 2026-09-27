@@ -13,6 +13,8 @@ import '../../../../core/constants/chama_roles.dart';
 import '../../../chama/presentation/providers/chama_providers.dart';
 import '../../../loans/domain/models/loan.dart';
 import '../../../loans/presentation/providers/loans_providers.dart';
+import '../../../../core/services/file_share.dart';
+import '../../data/report_pdf.dart';
 import '../../domain/models/chama_report.dart';
 import '../providers/reports_providers.dart';
 import '../widgets/reverse_contribution_sheet.dart';
@@ -35,6 +37,38 @@ class _ChamaReportScreenState extends ConsumerState<ChamaReportScreen>
     with TickerProviderStateMixin {
   TabController? _tabs;
   int _tabCount = 0;
+  bool _exporting = false;
+
+  /// The report as a document: the register is a proper table on a page,
+  /// which is the one place a member-by-year grid actually fits.
+  Future<void> _exportPdf(ChamaReport report, String chamaName, String currency) async {
+    setState(() => _exporting = true);
+    try {
+      final bytes = await ReportPdf.build(
+        report: report,
+        chamaName: chamaName,
+        currency: currency,
+      );
+      final safe = chamaName
+          .replaceAll(RegExp(r'[^A-Za-z0-9]+'), '-')
+          .replaceAll(RegExp(r'^-|-$'), '')
+          .toLowerCase();
+      await shareBytes(
+        bytes: bytes,
+        fileName: '$safe-report-'
+            '${DateTime.now().toIso8601String().split('T').first}.pdf',
+        mimeType: 'application/pdf',
+        subject: '$chamaName contribution report',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not build the PDF: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _exporting = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -65,6 +99,23 @@ class _ChamaReportScreenState extends ConsumerState<ChamaReportScreen>
       appBar: AppBar(
         title: const Text('Reports'),
         actions: [
+          if (isAdmin)
+            IconButton(
+              tooltip: 'Export as PDF',
+              icon: _exporting
+                  ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.picture_as_pdf_outlined),
+              onPressed: _exporting
+                  ? null
+                  : () {
+                      final report = reportAsync.value;
+                      if (report == null) return;
+                      _exportPdf(report, chama.name, currency);
+                    },
+            ),
           if (isAdmin)
             IconButton(
               tooltip: 'Contribution sheets',
