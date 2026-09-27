@@ -250,11 +250,11 @@ class _ActiveHome extends ConsumerWidget {
               );
             }
             // Home shows the last few, not the ledger: the point is
-            // "has anything happened since I last looked", and a dozen
-            // rows pushed the report below them off the screen. The full
-            // list is one tap away behind "See all". A taller window can
-            // carry a few more without becoming a scroll marathon.
-            final shown = list.take(wide ? 10 : 6).toList();
+            // "has anything happened since I last looked". Five, at every
+            // width — on a wide window a longer column just left a wall of
+            // near-identical rows beside the report. The full list is one
+            // tap away behind "See all", with a count of the rest below.
+            final shown = list.take(5).toList();
             return Column(
               children: [
                 for (final txn in shown)
