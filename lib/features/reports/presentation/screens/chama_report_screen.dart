@@ -16,6 +16,7 @@ import '../../../loans/presentation/providers/loans_providers.dart';
 import '../../domain/models/chama_report.dart';
 import '../providers/reports_providers.dart';
 import '../widgets/reverse_contribution_sheet.dart';
+import '../widgets/year_grid_tab.dart';
 
 /// The chama's full record, as opposed to the home screen's overview:
 /// every contribution, who made it and when, each member's standing, and
@@ -42,7 +43,7 @@ class _ChamaReportScreenState extends ConsumerState<ChamaReportScreen>
   }
 
   /// Rebuilt when the viewer's role resolves, since a member gets one tab
-  /// and an admin gets four.
+  /// and an admin gets five.
   TabController _controllerFor(int count) {
     if (_tabs == null || _tabCount != count) {
       _tabs?.dispose();
@@ -58,7 +59,7 @@ class _ChamaReportScreenState extends ConsumerState<ChamaReportScreen>
     final chama = ref.watch(chamaByIdProvider(widget.chamaId));
     final currency = chama?.currency ?? 'KES';
     final isAdmin = chama != null && ChamaRole.isAdmin(chama.role);
-    final controller = _controllerFor(isAdmin ? 4 : 1);
+    final controller = _controllerFor(isAdmin ? 5 : 1);
 
     return Scaffold(
       appBar: AppBar(
@@ -78,6 +79,7 @@ class _ChamaReportScreenState extends ConsumerState<ChamaReportScreen>
                 tabAlignment: TabAlignment.start,
                 tabs: const [
                   Tab(text: 'Overview'),
+                  Tab(text: 'By year'),
                   Tab(text: 'Members'),
                   Tab(text: 'Contributions'),
                   Tab(text: 'Borrowing'),
@@ -104,6 +106,11 @@ class _ChamaReportScreenState extends ConsumerState<ChamaReportScreen>
                   chamaId: widget.chamaId,
                 ),
                 if (isAdmin) ...[
+                  YearGridTab(
+                    report: report,
+                    currency: currency,
+                    chamaId: widget.chamaId,
+                  ),
                   _MembersTab(
                     report: report,
                     currency: currency,

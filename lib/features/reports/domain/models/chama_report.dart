@@ -208,6 +208,48 @@ class ChamaReport {
     return out;
   }
 
+  /// Every year the chama has a recorded contribution in, oldest first.
+  ///
+  /// A chama that collects once a year is asking a different question from
+  /// one that collects monthly: not "how much came in" but "who paid and
+  /// who did not". These power that view.
+  List<int> get contributionYears {
+    final years = <int>{
+      for (final e in entries)
+        if (!e.isReversed) e.date.year,
+    };
+    return years.toList()..sort();
+  }
+
+  /// What each member put in, year by year. Members who have contributed
+  /// nothing are present with an empty map — a blank row is exactly what
+  /// the chairperson is looking for, so it must not be dropped.
+  Map<String, Map<int, double>> get yearTotalsByMember {
+    final out = <String, Map<int, double>>{
+      for (final m in memberBreakdown) m.memberId: <int, double>{},
+    };
+    for (final e in entries) {
+      if (e.isReversed) continue;
+      final byYear = out.putIfAbsent(e.memberId, () => <int, double>{});
+      byYear[e.date.year] = (byYear[e.date.year] ?? 0) + e.amount;
+    }
+    return out;
+  }
+
+  /// How many members paid in [year] and what it came to. The count is of
+  /// distinct people, not entries, so someone who paid twice in a year
+  /// still counts once towards participation.
+  ({int contributors, double total}) yearSummary(int year) {
+    final members = <String>{};
+    var total = 0.0;
+    for (final e in entries) {
+      if (e.isReversed || e.date.year != year) continue;
+      members.add(e.memberId);
+      total += e.amount;
+    }
+    return (contributors: members.length, total: total);
+  }
+
   static const empty = ChamaReport(
     totalContributions: 0,
     memberCount: 0,
