@@ -97,11 +97,13 @@ begin
    where id = v_contribution.member_id
    returning balance, user_id into v_new_balance, v_member_user;
 
+  -- A reversal is dated when it happens, not when the contribution it
+  -- cancels was made: it is its own entry in the ledger, not an edit.
   insert into public.transactions
-    (chama_id, member_id, type, amount, reference_id, balance_after)
+    (chama_id, member_id, type, amount, reference_id, balance_after, occurred_at)
   values
     (v_contribution.chama_id, v_contribution.member_id, 'reversal',
-     -v_contribution.amount, v_contribution.id, v_new_balance);
+     -v_contribution.amount, v_contribution.id, v_new_balance, now());
 
   -- Tell the member, if they have a login of their own. A managed member
   -- has no account to notify; their chairperson is the one holding the

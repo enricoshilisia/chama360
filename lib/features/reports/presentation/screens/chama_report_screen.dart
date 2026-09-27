@@ -563,7 +563,10 @@ class _ContributionsTab extends StatelessWidget {
                 subtitle: Text(
                   e.isReversed
                       ? 'Reversed · ${e.reversalReason ?? 'no reason recorded'}'
-                      : DateFormat('EEE, d MMM yyyy').format(e.date),
+                      : [
+                          DateFormat('EEE, d MMM yyyy').format(e.date),
+                          if (e.notes != null && e.notes!.trim().isNotEmpty) e.notes!.trim(),
+                        ].join(' · '),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(

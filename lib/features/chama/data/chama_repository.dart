@@ -172,7 +172,7 @@ class ChamaRepository {
           .from('transactions')
           .select(_transactionSelect)
           .eq('chama_id', chamaId)
-          .order('created_at', ascending: false)
+          .order('occurred_at', ascending: false)
           .limit(50);
 
       final txns = (rows as List)
@@ -201,7 +201,7 @@ class ChamaRepository {
         .select(_transactionSelect)
         .eq('chama_id', chamaId)
         .eq('member_id', memberId)
-        .order('created_at', ascending: false);
+        .order('occurred_at', ascending: false);
     return (rows as List)
         .map((r) => ChamaTransaction.fromJson(r as Map<String, dynamic>))
         .toList();
@@ -216,7 +216,7 @@ class ChamaRepository {
         .from('transactions')
         .select(_transactionSelect)
         .inFilter('chama_id', chamaIds)
-        .order('created_at', ascending: false)
+        .order('occurred_at', ascending: false)
         .limit(20);
     return (rows as List)
         .map((r) => ChamaTransaction.fromJson(r as Map<String, dynamic>))

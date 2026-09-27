@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -372,8 +373,15 @@ class _HistoryTile extends StatelessWidget {
         ),
         title: Text(display.label,
             style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
-        subtitle: Text('${txn.createdAt.toLocal()}'.split(' ').first,
-            style: const TextStyle(fontSize: 11.5)),
+        subtitle: Text(
+          [
+            DateFormat('d MMM yyyy').format(txn.occurredAt),
+            if (txn.note != null && txn.note!.isNotEmpty) txn.note!,
+          ].join(' · '),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 11.5),
+        ),
         trailing: Text(
           '${isCredit ? '+' : '-'}${formatMoney(txn.amount.abs(), currency: currency)}',
           style: TextStyle(

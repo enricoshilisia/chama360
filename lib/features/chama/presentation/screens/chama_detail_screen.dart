@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -169,8 +170,11 @@ class _TxnTile extends StatelessWidget {
         subtitle: Text(
           [
             if (txn.memberName != null) txn.memberName!,
-            '${txn.createdAt.toLocal()}'.split('.').first,
+            DateFormat('d MMM yyyy').format(txn.occurredAt),
+            if (txn.note != null && txn.note!.isNotEmpty) txn.note!,
           ].join(' · '),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
           style: const TextStyle(fontSize: 11.5),
         ),
         trailing: Text(

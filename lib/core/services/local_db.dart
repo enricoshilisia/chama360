@@ -29,7 +29,7 @@ class LocalDb {
     final path = p.join(dbPath, 'chama360.db');
     return openDatabase(
       path,
-      version: 3,
+      version: 5,
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
           await db.execute('ALTER TABLE cached_transactions ADD COLUMN member_name TEXT');
@@ -37,6 +37,13 @@ class LocalDb {
         if (oldVersion < 3) {
           await db.execute(
               "ALTER TABLE cached_chamas ADD COLUMN status TEXT NOT NULL DEFAULT 'active'");
+        }
+        if (oldVersion < 4) {
+          // When the money moved, as opposed to when we wrote the row.
+          await db.execute('ALTER TABLE cached_transactions ADD COLUMN occurred_at TEXT');
+        }
+        if (oldVersion < 5) {
+          await db.execute('ALTER TABLE cached_transactions ADD COLUMN note TEXT');
         }
       },
       onCreate: (db, version) async {
@@ -62,6 +69,8 @@ class LocalDb {
             amount REAL NOT NULL,
             balance_after REAL,
             created_at TEXT,
+            occurred_at TEXT,
+            note TEXT,
             member_name TEXT
           )
         ''');
@@ -123,7 +132,7 @@ class LocalDb {
     return db.query('cached_transactions',
         where: 'chama_id = ?',
         whereArgs: [chamaId],
-        orderBy: 'created_at DESC');
+        orderBy: 'COALESCE(occurred_at, created_at) DESC');
   }
 
   /// Queue a write made while offline. [actionType] identifies which

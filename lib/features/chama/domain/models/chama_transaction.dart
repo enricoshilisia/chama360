@@ -11,6 +11,8 @@ class ChamaTransaction {
     required this.amount,
     this.balanceAfter,
     required this.createdAt,
+    required this.occurredAt,
+    this.note,
     this.memberName,
   });
 
@@ -20,7 +22,20 @@ class ChamaTransaction {
   final String type; // contribution | loan_disbursement | loan_repayment | penalty | withdrawal
   final double amount;
   final double? balanceAfter;
+
+  /// When the row was written. Kept because it is a real fact and the
+  /// audit trail wants it, but it is not what anyone means by "when".
   final DateTime createdAt;
+
+  /// When the money actually moved — a contribution's own date, which for
+  /// backdated and imported history is years away from [createdAt]. This
+  /// is the one every screen shows and sorts by.
+  final DateTime occurredAt;
+
+  /// What the entry was for, as typed when it was recorded — or, for a
+  /// reversal, the reason it was reversed.
+  final String? note;
+
   final String? memberName;
 
   factory ChamaTransaction.fromJson(Map<String, dynamic> json) {
@@ -39,6 +54,11 @@ class ChamaTransaction {
       amount: (json['amount'] as num).toDouble(),
       balanceAfter: (json['balance_after'] as num?)?.toDouble(),
       createdAt: DateTime.parse(json['created_at'] as String),
+      // Older cached rows and any row written before 0010 fall back to
+      // the write date, which is what was being shown anyway.
+      occurredAt: DateTime.parse(
+          (json['occurred_at'] ?? json['created_at']) as String),
+      note: (json['note'] as String?)?.trim(),
       memberName: resolvedName,
     );
   }
@@ -51,6 +71,8 @@ class ChamaTransaction {
         'amount': amount,
         'balance_after': balanceAfter,
         'created_at': createdAt.toIso8601String(),
+        'occurred_at': occurredAt.toIso8601String(),
+        'note': note,
         'member_name': memberName,
       };
 
@@ -63,6 +85,9 @@ class ChamaTransaction {
       amount: (row['amount'] as num).toDouble(),
       balanceAfter: (row['balance_after'] as num?)?.toDouble(),
       createdAt: DateTime.parse(row['created_at'] as String),
+      occurredAt: DateTime.parse(
+          (row['occurred_at'] ?? row['created_at']) as String),
+      note: row['note'] as String?,
       memberName: row['member_name'] as String?,
     );
   }

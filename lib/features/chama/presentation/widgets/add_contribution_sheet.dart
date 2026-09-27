@@ -156,16 +156,32 @@ class _AddContributionSheetState extends ConsumerState<AddContributionSheet> {
                             child: LinearProgressIndicator(),
                           ),
                           error: (e, _) => Text('Could not load members: $e'),
+                          // A plain dropdown means scrolling a list of
+                          // twenty-odd names to find one. This one takes
+                          // typing and filters as you go, which is how you
+                          // pick a person out of a family chama.
                           data: (members) => Padding(
                             padding: const EdgeInsets.only(bottom: 14),
-                            child: DropdownButtonFormField<String>(
-                              initialValue: _selectedMemberId,
-                              decoration: const InputDecoration(labelText: 'Contribution from'),
-                              items: members
-                                  .map((m) =>
-                                      DropdownMenuItem(value: m.id, child: Text(m.displayName)))
-                                  .toList(),
-                              onChanged: (v) => setState(() => _selectedMemberId = v),
+                            child: DropdownMenu<String>(
+                              initialSelection: _selectedMemberId,
+                              enableFilter: true,
+                              requestFocusOnTap: true,
+                              menuHeight: 280,
+                              expandedInsets: EdgeInsets.zero,
+                              label: const Text('Contribution from'),
+                              hintText: 'Type a name to search',
+                              leadingIcon: const Icon(Icons.person_search_outlined, size: 20),
+                              inputDecorationTheme: const InputDecorationTheme(
+                                filled: true,
+                              ),
+                              dropdownMenuEntries: [
+                                for (final m in members)
+                                  DropdownMenuEntry(value: m.id, label: m.displayName),
+                              ],
+                              onSelected: (v) => setState(() {
+                                _selectedMemberId = v;
+                                _error = null;
+                              }),
                             ),
                           ),
                         ),

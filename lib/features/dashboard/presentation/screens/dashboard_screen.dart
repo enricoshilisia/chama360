@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../../../../core/constants/chama_roles.dart';
 import '../../../../core/services/connectivity_service.dart';
@@ -666,7 +667,11 @@ class _ActivityTile extends StatelessWidget {
                         style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
                     const SizedBox(height: 2),
                     Text(
-                      txn.memberName == null ? chamaName : '${txn.memberName} · $chamaName',
+                      [
+                        if (txn.memberName != null) txn.memberName!,
+                        chamaName,
+                        if (txn.note != null && txn.note!.isNotEmpty) txn.note!,
+                      ].join(' · '),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(color: Colors.grey.shade500, fontSize: 11.5),
@@ -687,7 +692,7 @@ class _ActivityTile extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    '${txn.createdAt.toLocal()}'.split(' ').first,
+                    DateFormat('d MMM yyyy').format(txn.occurredAt),
                     style: TextStyle(color: Colors.grey.shade400, fontSize: 10.5),
                   ),
                 ],

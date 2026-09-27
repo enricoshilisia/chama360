@@ -10,7 +10,7 @@ import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../domain/models/chama_member.dart';
 import '../providers/chama_providers.dart';
 
-class ChamaMembersScreen extends ConsumerWidget {
+class ChamaMembersScreen extends ConsumerStatefulWidget {
   const ChamaMembersScreen({
     super.key,
     required this.chamaId,
@@ -34,7 +34,26 @@ class ChamaMembersScreen extends ConsumerWidget {
   final ValueChanged<String>? onSelect;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ChamaMembersScreen> createState() => _ChamaMembersScreenState();
+}
+
+class _ChamaMembersScreenState extends ConsumerState<ChamaMembersScreen> {
+  final _searchCtrl = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final chamaId = widget.chamaId;
+    final embedded = widget.embedded;
+    final selectedMemberId = widget.selectedMemberId;
+    final onSelect = widget.onSelect;
+
     final membersAsync = ref.watch(chamaMembersProvider(chamaId));
     final chama = ref.watch(chamaByIdProvider(chamaId));
     final isAdmin = chama != null && ChamaRole.isAdmin(chama.role);
@@ -56,19 +75,60 @@ class ChamaMembersScreen extends ConsumerWidget {
       body: membersAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),
-        data: (members) => ListView.separated(
+        data: (all) {
+          // Twenty-odd names is past the point where scrolling to find
+          // someone is reasonable, so the list filters as you type.
+          final q = _query.trim().toLowerCase();
+          final members = q.isEmpty
+              ? all
+              : all.where((m) => m.displayName.toLowerCase().contains(q)).toList();
+
+          return ListView.separated(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, kShellBottomInset),
-          // The spreadsheet route belongs where the roster is: a chairperson
-          // putting a chama's history in is looking at this list when they
-          // realise they are not going to type it all one modal at a time.
-          itemCount: members.length + (isAdmin ? 1 : 0),
+          itemCount: members.length + 1 + (members.isEmpty ? 1 : 0),
           separatorBuilder: (_, _) => const SizedBox(height: 8),
           itemBuilder: (context, index) {
-            if (isAdmin && index == 0) {
-              return _SheetsShortcut(chamaId: chamaId);
+            if (index == 0) {
+              return Column(
+                children: [
+                  TextField(
+                    controller: _searchCtrl,
+                    onChanged: (v) => setState(() => _query = v),
+                    textInputAction: TextInputAction.search,
+                    decoration: InputDecoration(
+                      hintText: 'Search ${all.length} members',
+                      prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                      isDense: true,
+                      suffixIcon: _query.isEmpty
+                          ? null
+                          : IconButton(
+                              icon: const Icon(Icons.close_rounded, size: 18),
+                              onPressed: () {
+                                _searchCtrl.clear();
+                                setState(() => _query = '');
+                              },
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // The spreadsheet route belongs where the roster is: a
+                  // chairperson putting a chama's history in is looking at
+                  // this list when they realise they are not going to type
+                  // it all one modal at a time.
+                  if (isAdmin) _SheetsShortcut(chamaId: chamaId),
+                ],
+              );
             }
-            final i = isAdmin ? index - 1 : index;
-            final m = members[i];
+            if (members.isEmpty) {
+              return Padding(
+                padding: const EdgeInsets.only(top: 32),
+                child: Center(
+                  child: Text('No member matches "${_query.trim()}"',
+                      style: TextStyle(color: Colors.grey.shade600)),
+                ),
+              );
+            }
+            final m = members[index - 1];
             final isSelf = m.isSelf || (m.userId != null && m.userId == myUserId);
 
             // A member can only open their own record; everyone else is
@@ -108,7 +168,8 @@ class ChamaMembersScreen extends ConsumerWidget {
               ),
             );
           },
-        ),
+          );
+        },
       ),
     );
   }
