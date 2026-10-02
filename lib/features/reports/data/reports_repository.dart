@@ -25,6 +25,10 @@ class ReportsRepository {
       _client.rpc('chama_contributions', params: {'p_chama_id': chamaId}),
       _client.from('loans').select('principal, total_due, amount_repaid, status, due_date, interest_rate, interest_period').eq('chama_id', chamaId),
       _client.rpc('chama_roster', params: {'p_chama_id': chamaId}),
+      // Shares that have moved between members. The chama's total is
+      // unaffected, but who holds what is not, and the per-member figures
+      // here have to agree with the balances on the roster.
+      _client.rpc('chama_share_transfers', params: {'p_chama_id': chamaId}),
       // Repayments hang off loans, so the chama filter has to be applied
       // through the join — !inner keeps rows whose loan is in this chama
       // and drops the rest, rather than returning every repayment ever.
@@ -40,7 +44,18 @@ class ReportsRepository {
     final contributionRows = (results[0] as List).cast<Map<String, dynamic>>();
     final loans = (results[1] as List).cast<Map<String, dynamic>>();
     final members = (results[2] as List).cast<Map<String, dynamic>>();
-    final repaymentRows = (results[3] as List).cast<Map<String, dynamic>>();
+    final transferRows = (results[3] as List).cast<Map<String, dynamic>>();
+    final repaymentRows = (results[4] as List).cast<Map<String, dynamic>>();
+
+    final transfersIn = <String, double>{};
+    final transfersOut = <String, double>{};
+    for (final t in transferRows) {
+      final amount = (t['amount'] as num).toDouble();
+      final from = t['from_member_id'] as String;
+      final to = t['to_member_id'] as String;
+      transfersOut[from] = (transfersOut[from] ?? 0) + amount;
+      transfersIn[to] = (transfersIn[to] ?? 0) + amount;
+    }
 
     // Every contribution as a row, newest first — reversed ones included,
     // flagged, so the list shows the correction rather than quietly
@@ -134,10 +149,12 @@ class ReportsRepository {
         total: perMember[id] ?? 0,
         count: countByMember[id] ?? 0,
         lastDate: lastByMember[id],
+        transfersIn: transfersIn[id] ?? 0,
+        transfersOut: transfersOut[id] ?? 0,
       ));
     }
     breakdown.sort((a, b) {
-      final byTotal = b.total.compareTo(a.total);
+      final byTotal = b.holding.compareTo(a.holding);
       // Everyone on zero would otherwise come back in whatever order the
       // roster happened to arrive in; alphabetical makes the tail of the
       // list something a chairperson can actually scan for a name.

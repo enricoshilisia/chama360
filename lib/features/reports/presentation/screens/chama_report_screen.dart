@@ -458,7 +458,7 @@ class _MembersTabState extends State<_MembersTab> {
     // show, so the column reads as a ranking at a glance rather than as
     // absolute amounts.
     final highest =
-        breakdown.map((m) => m.total).fold<double>(0, (a, b) => a > b ? a : b);
+        breakdown.map((m) => m.holding).fold<double>(0, (a, b) => a > b ? a : b);
 
     // Said out loud, because a column of names with zeroes against them
     // reads as a broken report otherwise. Every active member is here,
@@ -508,7 +508,7 @@ class _MembersTabState extends State<_MembersTab> {
         }
 
         final m = breakdown[index - 1];
-        final fraction = highest <= 0 ? 0.0 : (m.total / highest).clamp(0.0, 1.0);
+        final fraction = highest <= 0 ? 0.0 : (m.holding / highest).clamp(0.0, 1.0);
         final primary = Theme.of(context).colorScheme.primary;
 
         return InkWell(
@@ -528,7 +528,7 @@ class _MembersTabState extends State<_MembersTab> {
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(fontWeight: FontWeight.w700)),
                     ),
-                    Text(formatMoney(m.total, currency: currency),
+                    Text(formatMoney(m.holding, currency: currency),
                         style: const TextStyle(fontWeight: FontWeight.w800)),
                   ],
                 ),
@@ -543,6 +543,19 @@ class _MembersTabState extends State<_MembersTab> {
                   ),
                 ),
                 const SizedBox(height: 8),
+                if (m.hasTransfers && _period == ReportPeriod.allTime) ...[
+                  Text(
+                    [
+                      '${formatMoney(m.total, currency: currency)} paid in',
+                      if (m.transfersIn > 0)
+                        '+${formatMoney(m.transfersIn, currency: currency)} received',
+                      if (m.transfersOut > 0)
+                        '-${formatMoney(m.transfersOut, currency: currency)} transferred out',
+                    ].join(' · '),
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                  ),
+                  const SizedBox(height: 4),
+                ],
                 Text(
                   m.count == 0
                       ? (_period == ReportPeriod.allTime

@@ -8,6 +8,7 @@ import '../../data/chama_repository.dart';
 import '../../domain/models/chama.dart';
 import '../../domain/models/chama_member.dart';
 import '../../domain/models/chama_transaction.dart';
+import '../../domain/models/share_transfer.dart';
 
 final chamaRepositoryProvider = Provider<ChamaRepository>((ref) {
   return ChamaRepository(ref.watch(supabaseClientProvider));
@@ -54,4 +55,11 @@ final recentActivityProvider = FutureProvider.autoDispose<List<ChamaTransaction>
 final memberTransactionsProvider = FutureProvider.autoDispose
     .family<List<ChamaTransaction>, (String chamaId, String memberId)>((ref, key) async {
   return ref.watch(chamaRepositoryProvider).transactionsForMember(key.$1, key.$2);
+});
+
+/// Share transfers for a chama — the audit trail of holdings moving
+/// between members.
+final shareTransfersProvider =
+    FutureProvider.autoDispose.family<List<ShareTransfer>, String>((ref, chamaId) async {
+  return ref.watch(chamaRepositoryProvider).shareTransfers(chamaId);
 });

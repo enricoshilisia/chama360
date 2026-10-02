@@ -107,6 +107,8 @@ class MemberContribution {
     required this.total,
     required this.count,
     this.lastDate,
+    this.transfersIn = 0,
+    this.transfersOut = 0,
   });
 
   final String memberId;
@@ -117,6 +119,19 @@ class MemberContribution {
   /// Null when they've never contributed — which is the point of showing
   /// it. A member with no date is the one to follow up.
   final DateTime? lastDate;
+
+  /// Shares moved into and out of this member's name. Kept apart from
+  /// [total] because what somebody paid in is a historical fact that a
+  /// later transfer does not rewrite.
+  final double transfersIn;
+  final double transfersOut;
+
+  /// What they hold now: what they paid in, plus what was transferred to
+  /// them, less what they transferred away. This is the figure that
+  /// matches their balance on the roster.
+  double get holding => total + transfersIn - transfersOut;
+
+  bool get hasTransfers => transfersIn > 0 || transfersOut > 0;
 }
 
 /// Everything the dashboard's report section needs, computed once from the

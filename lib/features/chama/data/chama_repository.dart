@@ -4,6 +4,7 @@ import '../../../core/services/local_db.dart';
 import '../domain/models/chama.dart';
 import '../domain/models/chama_member.dart';
 import '../domain/models/chama_transaction.dart';
+import '../domain/models/share_transfer.dart';
 import '../../loans/domain/models/loan.dart';
 
 /// All chama reads/writes go through here. Every read tries Supabase first
@@ -336,6 +337,39 @@ class ChamaRepository {
       inserted: (row['inserted'] as num?)?.toInt() ?? 0,
       duplicates: (row['duplicates'] as num?)?.toInt() ?? 0,
     );
+  }
+
+  /// Moves one member's shares into another member's name — see
+  /// transfer_shares() in 0013_share_transfers.sql.
+  ///
+  /// The chama's total is untouched; only who holds what changes. The
+  /// reason is required by the database, not just the form, because the
+  /// row it writes is the audit record for somebody's money moving.
+  Future<String> transferShares({
+    required String chamaId,
+    required String fromMemberId,
+    required String toMemberId,
+    required double amount,
+    required String reason,
+  }) async {
+    final result = await _client.rpc('transfer_shares', params: {
+      'p_chama_id': chamaId,
+      'p_from_member_id': fromMemberId,
+      'p_to_member_id': toMemberId,
+      'p_amount': amount,
+      'p_reason': reason,
+    });
+    return result as String;
+  }
+
+  /// Every share transfer in the chama for an admin; for anyone else,
+  /// only the ones that changed what they hold.
+  Future<List<ShareTransfer>> shareTransfers(String chamaId) async {
+    final rows = await _client
+        .rpc('chama_share_transfers', params: {'p_chama_id': chamaId});
+    return (rows as List)
+        .map((r) => ShareTransfer.fromJson(r as Map<String, dynamic>))
+        .toList();
   }
 
   /// Undoes a contribution by posting the opposite entry rather than

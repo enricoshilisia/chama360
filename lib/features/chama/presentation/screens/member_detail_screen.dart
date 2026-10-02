@@ -15,6 +15,7 @@ import '../../../loans/presentation/widgets/loan_decision.dart';
 import '../../domain/models/chama_member.dart';
 import '../../domain/models/chama_transaction.dart';
 import '../providers/chama_providers.dart';
+import '../widgets/transfer_shares_sheet.dart';
 
 /// A member's full picture within a chama: who they are, their balance,
 /// every contribution/loan movement against their name, and their loan
@@ -118,7 +119,26 @@ class MemberDetailScreen extends ConsumerWidget {
                     _GiveLoginButton(chamaId: chamaId, member: member)
                   else
                     _ResetPasswordButton(chamaId: chamaId, member: member),
+                  // Only worth offering when there is something to move.
+                  if ((member.balance ?? 0) > 0) ...[
+                    const SizedBox(height: 10),
+                    OutlinedButton.icon(
+                      onPressed: () => showTransferSharesSheet(
+                        context,
+                        chamaId: chamaId,
+                        from: member,
+                      ),
+                      icon: const Icon(Icons.swap_horiz_rounded),
+                      label: const Text('Transfer shares to another member'),
+                      style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14)),
+                    ),
+                  ],
                 ],
+                // What has moved in or out of this member's name, and on
+                // whose authority. Shown to the member too: their holding
+                // changed and they are owed the reason.
+                _ShareTransferHistory(chamaId: chamaId, memberId: memberId),
                 // Pending requests come first and carry their own
                 // decision buttons: a notification drops an admin here, and
                 // having to hunt for the loan afterwards defeats the point.
@@ -486,6 +506,93 @@ class _ResetPasswordButtonState extends ConsumerState<_ResetPasswordButton> {
           : const Icon(Icons.lock_reset_rounded),
       label: const Text('Reset password'),
       style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+    );
+  }
+}
+
+
+/// The transfers that changed what this member holds — each one naming
+/// the other side, the reason, and the admin who carried it out.
+class _ShareTransferHistory extends ConsumerWidget {
+  const _ShareTransferHistory({required this.chamaId, required this.memberId});
+
+  final String chamaId;
+  final String memberId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final transfers = ref.watch(shareTransfersProvider(chamaId)).value ?? const [];
+    final mine = transfers.where((t) => t.involves(memberId)).toList();
+    if (mine.isEmpty) return const SizedBox.shrink();
+
+    final chama = ref.watch(chamaByIdProvider(chamaId));
+    final currency = chama?.currency ?? 'KES';
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Share transfers',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          for (final t in mine)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: GlassContainer(
+                padding: const EdgeInsets.all(14),
+                borderRadius: 16,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          t.isOutgoingFor(memberId)
+                              ? Icons.call_made_rounded
+                              : Icons.move_down_rounded,
+                          size: 17,
+                          color: t.isOutgoingFor(memberId)
+                              ? Colors.orange.shade800
+                              : Colors.green.shade700,
+                        ),
+                        const SizedBox(width: 9),
+                        Expanded(
+                          child: Text(
+                            t.isOutgoingFor(memberId)
+                                ? 'Transferred to ${t.toName}'
+                                : 'Received from ${t.fromName}',
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w700, fontSize: 13.5),
+                          ),
+                        ),
+                        Text(
+                          '${t.isOutgoingFor(memberId) ? '-' : '+'}'
+                          '${formatMoney(t.amount, currency: currency)}',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: t.isOutgoingFor(memberId)
+                                ? Colors.orange.shade800
+                                : Colors.green.shade700,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(t.reason,
+                        style: const TextStyle(fontSize: 12.5, height: 1.4)),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${DateFormat('d MMM yyyy').format(t.createdAt)} · '
+                      'by ${t.performedByName}',
+                      style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
