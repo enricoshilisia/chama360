@@ -52,7 +52,7 @@ class _LoanDecisionButtonsState extends ConsumerState<LoanDecisionButtons> {
   }
 
   Future<void> _approve() async {
-    final result = await showDialog<(double, DateTime?)>(
+    final result = await showDialog<(double, InterestPeriod, DateTime?)>(
       context: context,
       builder: (context) => _ApproveDialog(loan: widget.loan),
     );
@@ -60,7 +60,8 @@ class _LoanDecisionButtonsState extends ConsumerState<LoanDecisionButtons> {
     await _run(() => ref.read(chamaRepositoryProvider).approveLoan(
           loanId: widget.loan.id,
           interestRate: result.$1,
-          dueDate: result.$2,
+          interestPeriod: result.$2,
+          dueDate: result.$3,
         ));
   }
 
@@ -130,7 +131,9 @@ class _ApproveDialog extends StatefulWidget {
 
 class _ApproveDialogState extends State<_ApproveDialog> {
   final _rateCtrl = TextEditingController(text: '0');
+  InterestPeriod _period = InterestPeriod.oneOff;
   DateTime? _dueDate;
+  String? _error;
 
   @override
   void dispose() {
@@ -152,10 +155,34 @@ class _ApproveDialogState extends State<_ApproveDialog> {
             style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
           ),
           const SizedBox(height: 16),
-          TextField(
-            controller: _rateCtrl,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(labelText: 'Interest rate (%)'),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _rateCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (_) => setState(() => _error = null),
+                  decoration: const InputDecoration(labelText: 'Rate (%)'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: DropdownButtonFormField<InterestPeriod>(
+                  initialValue: _period,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'Charged'),
+                  items: [
+                    for (final p in InterestPeriod.values)
+                      DropdownMenuItem(value: p, child: Text(p.label)),
+                  ],
+                  onChanged: (v) => setState(() {
+                    _period = v ?? _period;
+                    _error = null;
+                  }),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 14),
           Row(
@@ -176,21 +203,38 @@ class _ApproveDialogState extends State<_ApproveDialog> {
                     firstDate: DateTime.now(),
                     lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
                   );
-                  if (picked != null) setState(() => _dueDate = picked);
+                  if (picked != null) {
+                    setState(() {
+                      _dueDate = picked;
+                      _error = null;
+                    });
+                  }
                 },
                 child: const Text('Pick date'),
               ),
             ],
           ),
+          if (_error != null) ...[
+            const SizedBox(height: 10),
+            Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 12.5)),
+          ],
         ],
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
         ElevatedButton(
-          onPressed: () => Navigator.pop(
-            context,
-            (double.tryParse(_rateCtrl.text.trim()) ?? 0, _dueDate),
-          ),
+          onPressed: () {
+            final rate = double.tryParse(_rateCtrl.text.trim()) ?? 0;
+            // Interest charged per month or per year is worked out from
+            // how long the loan runs, so there has to be an end to it.
+            if (_period != InterestPeriod.oneOff && rate > 0 && _dueDate == null) {
+              setState(() => _error =
+                  'Pick a due date — ${_period.label.toLowerCase()} interest needs '
+                  'a term to run over.');
+              return;
+            }
+            Navigator.pop(context, (rate, _period, _dueDate));
+          },
           child: const Text('Approve'),
         ),
       ],

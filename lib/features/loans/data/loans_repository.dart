@@ -51,6 +51,7 @@ class LoansRepository {
     required String memberId,
     required double principal,
     double interestRate = 0,
+    InterestPeriod interestPeriod = InterestPeriod.oneOff,
     String? purpose,
     DateTime? dueDate,
   }) async {
@@ -59,6 +60,7 @@ class LoansRepository {
       'p_member_id': memberId,
       'p_principal': principal,
       'p_interest_rate': interestRate,
+      'p_interest_period': interestPeriod.value,
       'p_purpose': purpose,
       'p_due_date': dueDate?.toIso8601String().split('T').first,
     });
@@ -68,17 +70,15 @@ class LoansRepository {
   Future<void> approveAndDisburse({
     required String loanId,
     required double interestRate,
+    InterestPeriod interestPeriod = InterestPeriod.oneOff,
     DateTime? dueDate,
   }) async {
-    await _client.from('loans').update({
-      'interest_rate': interestRate,
-      'due_date': dueDate?.toIso8601String().split('T').first,
-      'status': 'active',
-    }).eq('id', loanId);
-  }
-
-  Future<void> reject(String loanId) async {
-    await _client.from('loans').update({'status': 'rejected'}).eq('id', loanId);
+    await _client.rpc('approve_loan', params: {
+      'p_loan_id': loanId,
+      'p_interest_rate': interestRate,
+      'p_interest_period': interestPeriod.value,
+      'p_due_date': dueDate?.toIso8601String().split('T').first,
+    });
   }
 
   Future<List<LoanRepayment>> repaymentsFor(String loanId) async {

@@ -13,9 +13,15 @@ final reportsRepositoryProvider = Provider<ReportsRepository>((ref) {
 /// the caller can read. A member's own report query only returns their own
 /// contributions now, so summing it client-side would show them their
 /// personal total labelled as the chama's.
-final chamaTotalsProvider = FutureProvider.autoDispose
-    .family<({double totalContributions, int memberCount, double totalOutstanding}), String>(
-        (ref, chamaId) async {
+final chamaTotalsProvider = FutureProvider.autoDispose.family<
+    ({
+      double totalContributions,
+      int memberCount,
+      double totalOutstanding,
+      double interestEarned,
+      double interestExpected,
+    }),
+    String>((ref, chamaId) async {
   return ref.watch(chamaRepositoryProvider).chamaTotals(chamaId);
 });
 

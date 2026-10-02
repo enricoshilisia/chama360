@@ -4,6 +4,7 @@ import '../../../core/services/local_db.dart';
 import '../domain/models/chama.dart';
 import '../domain/models/chama_member.dart';
 import '../domain/models/chama_transaction.dart';
+import '../../loans/domain/models/loan.dart';
 
 /// All chama reads/writes go through here. Every read tries Supabase first
 /// and falls back to the SQLite cache when offline; every successful read
@@ -132,11 +133,13 @@ class ChamaRepository {
   Future<void> approveLoan({
     required String loanId,
     double interestRate = 0,
+    InterestPeriod interestPeriod = InterestPeriod.oneOff,
     DateTime? dueDate,
   }) async {
     await _client.rpc('approve_loan', params: {
       'p_loan_id': loanId,
       'p_interest_rate': interestRate,
+      'p_interest_period': interestPeriod.value,
       'p_due_date': dueDate?.toIso8601String().split('T').first,
     });
   }
@@ -235,14 +238,22 @@ class ChamaRepository {
 
   /// Pooled figures every member may see, even though the per-member
   /// breakdown behind them is not theirs to read.
-  Future<({double totalContributions, int memberCount, double totalOutstanding})>
-      chamaTotals(String chamaId) async {
+  Future<
+      ({
+        double totalContributions,
+        int memberCount,
+        double totalOutstanding,
+        double interestEarned,
+        double interestExpected,
+      })> chamaTotals(String chamaId) async {
     final rows = await _client.rpc('chama_totals', params: {'p_chama_id': chamaId});
     final row = (rows as List).first as Map<String, dynamic>;
     return (
       totalContributions: (row['total_contributions'] as num?)?.toDouble() ?? 0,
       memberCount: (row['member_count'] as num?)?.toInt() ?? 0,
       totalOutstanding: (row['total_outstanding'] as num?)?.toDouble() ?? 0,
+      interestEarned: (row['interest_earned'] as num?)?.toDouble() ?? 0,
+      interestExpected: (row['interest_expected'] as num?)?.toDouble() ?? 0,
     );
   }
 

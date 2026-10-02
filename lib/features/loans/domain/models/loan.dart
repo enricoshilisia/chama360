@@ -1,3 +1,31 @@
+/// How often a loan's interest rate is charged. A rate on its own says
+/// nothing — "10%" is either the whole cost of the loan or 10% every
+/// month, and over a year those differ tenfold.
+enum InterestPeriod {
+  oneOff('one_off', 'One-off', 'of the amount, once'),
+  perMonth('per_month', 'Per month', 'of the amount, every month'),
+  perAnnum('per_annum', 'Per year', 'of the amount, every year');
+
+  const InterestPeriod(this.value, this.label, this.explainer);
+
+  final String value;
+  final String label;
+  final String explainer;
+
+  static InterestPeriod fromValue(String? v) => switch (v) {
+        'per_month' => InterestPeriod.perMonth,
+        'per_annum' => InterestPeriod.perAnnum,
+        _ => InterestPeriod.oneOff,
+      };
+
+  /// Shown next to a rate, e.g. "5% a month".
+  String get suffix => switch (this) {
+        InterestPeriod.oneOff => '',
+        InterestPeriod.perMonth => ' a month',
+        InterestPeriod.perAnnum => ' a year',
+      };
+}
+
 /// A loan request/record, joined with the borrower's profile for display.
 class Loan {
   const Loan({
@@ -6,6 +34,7 @@ class Loan {
     required this.memberId,
     required this.principal,
     required this.interestRate,
+    this.interestPeriod = InterestPeriod.oneOff,
     required this.totalDue,
     required this.amountRepaid,
     required this.status,
@@ -22,6 +51,7 @@ class Loan {
   final String memberId;
   final double principal;
   final double interestRate;
+  final InterestPeriod interestPeriod;
   final double totalDue;
   final double amountRepaid;
   final String status; // pending | approved | rejected | active | repaid | defaulted
@@ -37,6 +67,17 @@ class Loan {
 
   double get outstanding => (totalDue - amountRepaid).clamp(0, double.infinity);
 
+  /// What the chama charges for this loan, over its whole term. This is
+  /// the chama's income from lending, as opposed to the principal, which
+  /// is its own money coming back.
+  double get interestAmount => (totalDue - principal).clamp(0, double.infinity);
+
+  /// "5% a month", or just "No interest".
+  String get rateLabel => interestRate == 0
+      ? 'No interest'
+      : '${interestRate % 1 == 0 ? interestRate.toStringAsFixed(0) : interestRate}%'
+          '${interestPeriod.suffix}';
+
   factory Loan.fromJson(Map<String, dynamic> json, {String? currentUserId}) {
     final memberJoin = json['chama_members'] as Map<String, dynamic>?;
     final profile = memberJoin?['profiles'] as Map<String, dynamic>?;
@@ -48,6 +89,7 @@ class Loan {
       memberId: json['member_id'] as String,
       principal: (json['principal'] as num).toDouble(),
       interestRate: (json['interest_rate'] as num?)?.toDouble() ?? 0,
+      interestPeriod: InterestPeriod.fromValue(json['interest_period'] as String?),
       totalDue: (json['total_due'] as num?)?.toDouble() ?? 0,
       amountRepaid: (json['amount_repaid'] as num?)?.toDouble() ?? 0,
       status: json['status'] as String,

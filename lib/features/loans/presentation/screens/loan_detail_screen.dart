@@ -58,7 +58,12 @@ class LoanDetailScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 14),
                       _Row('Principal', formatMoney(loan.principal, currency: currency)),
-                      _Row('Interest rate', '${loan.interestRate.toStringAsFixed(1)}%'),
+                      // The rate on its own is ambiguous; "5%" and "5% a
+                      // month" differ by the length of the loan.
+                      _Row('Interest rate', loan.rateLabel),
+                      if (loan.interestAmount > 0)
+                        _Row('Interest charged',
+                            formatMoney(loan.interestAmount, currency: currency)),
                       _Row('Total due', formatMoney(loan.totalDue, currency: currency)),
                       _Row('Repaid', formatMoney(loan.amountRepaid, currency: currency)),
                       _Row('Outstanding', formatMoney(loan.outstanding, currency: currency)),

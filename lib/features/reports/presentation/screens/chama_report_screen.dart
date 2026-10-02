@@ -211,6 +211,9 @@ class _OverviewTab extends ConsumerWidget {
     final pooled = totals?.totalContributions ?? report.totalContributions;
     final memberCount = totals?.memberCount ?? report.memberCount;
     final outstanding = totals?.totalOutstanding ?? report.totalOutstanding;
+    final interestEarned = totals?.interestEarned ?? report.interestEarned;
+    final interestExpected = totals?.interestExpected ?? report.interestExpected;
+    final earnings = pooled + interestEarned;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, kShellBottomInset),
@@ -219,8 +222,12 @@ class _OverviewTab extends ConsumerWidget {
           children: [
             Expanded(
               child: _Stat(
-                label: isAdmin ? 'Total contributed' : 'Pooled contributions',
-                value: formatMoney(pooled, currency: currency),
+                // What the chama has taken in altogether: members'
+                // contributions plus what it has made lending them out.
+                // Both halves are broken out below, because a figure
+                // nobody can decompose is a figure nobody trusts.
+                label: isAdmin ? 'Total earnings' : 'Pooled funds',
+                value: formatMoney(earnings, currency: currency),
                 icon: Icons.savings_rounded,
                 color: AppColors.seedDark,
               ),
@@ -235,6 +242,33 @@ class _OverviewTab extends ConsumerWidget {
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 10),
+        GlassContainer(
+          padding: const EdgeInsets.all(14),
+          borderRadius: 16,
+          child: Column(
+            children: [
+              _Breakdown(
+                label: 'Contributions from members',
+                value: formatMoney(pooled, currency: currency),
+              ),
+              const Divider(height: 18),
+              _Breakdown(
+                label: 'Interest earned on loans repaid',
+                value: formatMoney(interestEarned, currency: currency),
+                emphasis: interestEarned > 0,
+              ),
+              if (interestExpected > 0) ...[
+                const Divider(height: 18),
+                _Breakdown(
+                  label: 'Interest still to come in',
+                  value: formatMoney(interestExpected, currency: currency),
+                  muted: true,
+                ),
+              ],
+            ],
+          ),
         ),
         const SizedBox(height: 10),
         Row(
@@ -649,6 +683,42 @@ class _ContributionsTab extends StatelessWidget {
 }
 
 // ------------------------------------------------------------------ pieces
+
+/// One line of the earnings breakdown. The headline figure is a sum, and
+/// a chairperson asked at a meeting where it came from needs to be able
+/// to point at the parts.
+class _Breakdown extends StatelessWidget {
+  const _Breakdown({
+    required this.label,
+    required this.value,
+    this.emphasis = false,
+    this.muted = false,
+  });
+
+  final String label;
+  final String value;
+  final bool emphasis;
+  final bool muted;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = muted ? Colors.grey.shade500 : null;
+    return Row(
+      children: [
+        Expanded(
+          child: Text(label,
+              style: TextStyle(fontSize: 12.5, color: color ?? Colors.grey.shade700)),
+        ),
+        Text(value,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: emphasis ? FontWeight.w800 : FontWeight.w600,
+              color: emphasis ? Theme.of(context).colorScheme.primary : color,
+            )),
+      ],
+    );
+  }
+}
 
 class _Stat extends StatelessWidget {
   const _Stat({

@@ -130,6 +130,8 @@ class ChamaReport {
     required this.totalOutstanding,
     required this.activeLoanCount,
     required this.overdueLoanCount,
+    this.interestEarned = 0,
+    this.interestExpected = 0,
     required this.monthly,
     required this.topContributors,
     this.trendTitle = 'Contributions by month',
@@ -144,6 +146,18 @@ class ChamaReport {
   final double totalOutstanding;
   final int activeLoanCount;
   final int overdueLoanCount;
+
+  /// Interest on loans already repaid — the chama's income from lending,
+  /// money it is actually holding.
+  final double interestEarned;
+
+  /// Interest on loans still running. Owed to the chama, not yet in it,
+  /// so it is never added to [totalEarnings].
+  final double interestExpected;
+
+  /// Everything the chama has taken in: what members put in, plus what it
+  /// made lending that money out.
+  double get totalEarnings => totalContributions + interestEarned;
   final List<MonthlyTotal> monthly;
   final List<ContributorTotal> topContributors;
 

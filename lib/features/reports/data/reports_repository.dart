@@ -23,7 +23,7 @@ class ReportsRepository {
       // instead of relying on an embedded resource picking up the right
       // RLS policy.
       _client.rpc('chama_contributions', params: {'p_chama_id': chamaId}),
-      _client.from('loans').select('principal, total_due, amount_repaid, status, due_date').eq('chama_id', chamaId),
+      _client.from('loans').select('principal, total_due, amount_repaid, status, due_date, interest_rate, interest_period').eq('chama_id', chamaId),
       _client.rpc('chama_roster', params: {'p_chama_id': chamaId}),
       // Repayments hang off loans, so the chama filter has to be applied
       // through the join — !inner keeps rows whose loan is in this chama
@@ -85,14 +85,26 @@ class ReportsRepository {
     double totalOutstanding = 0;
     int activeLoanCount = 0;
     int overdueLoanCount = 0;
+    // Interest is the chama's income from lending its own money out.
+    // Split by whether it has actually been collected: a loan still
+    // running owes interest the chama does not yet hold.
+    double interestEarned = 0;
+    double interestExpected = 0;
     for (final l in loans) {
       final status = l['status'] as String;
       if (status == 'active' || status == 'repaid' || status == 'defaulted') {
         totalLoansDisbursed += (l['principal'] as num).toDouble();
       }
+      final principal = (l['principal'] as num).toDouble();
+      final due = (l['total_due'] as num?)?.toDouble() ?? 0;
+      final interest = (due - principal).clamp(0, double.infinity);
+
+      if (status == 'repaid') interestEarned += interest;
+      if (status == 'active') interestExpected += interest;
+
       if (status == 'active') {
         activeLoanCount++;
-        final totalDue = (l['total_due'] as num?)?.toDouble() ?? 0;
+        final totalDue = due;
         final repaid = (l['amount_repaid'] as num?)?.toDouble() ?? 0;
         totalOutstanding += (totalDue - repaid).clamp(0, double.infinity);
 
@@ -163,6 +175,8 @@ class ReportsRepository {
       totalOutstanding: totalOutstanding,
       activeLoanCount: activeLoanCount,
       overdueLoanCount: overdueLoanCount,
+      interestEarned: interestEarned,
+      interestExpected: interestExpected,
       monthly: monthly,
       trendTitle: trendTitle,
       topContributors: [
