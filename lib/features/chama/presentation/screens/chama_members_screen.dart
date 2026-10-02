@@ -8,6 +8,9 @@ import '../../../../core/utils/currency.dart';
 import '../../../../core/widgets/glass_container.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../domain/models/chama_member.dart';
+import '../../../../core/utils/error_message.dart';
+import '../../../reports/presentation/providers/reports_providers.dart';
+import '../../domain/models/archived_member.dart';
 import '../providers/chama_providers.dart';
 
 class ChamaMembersScreen extends ConsumerStatefulWidget {
@@ -83,6 +86,9 @@ class _ChamaMembersScreenState extends ConsumerState<ChamaMembersScreen> {
               ? all
               : all.where((m) => m.displayName.toLowerCase().contains(q)).toList();
 
+          final archivedCount =
+              isAdmin ? (ref.watch(archivedMembersProvider(chamaId)).value?.length ?? 0) : 0;
+
           // The search box sits outside the scroll view, so it stays put
           // while a long roster moves under it — scrolling to the top to
           // change what you are looking for is the thing a search box is
@@ -123,9 +129,20 @@ class _ChamaMembersScreenState extends ConsumerState<ChamaMembersScreen> {
                 Expanded(
                   child: ListView.separated(
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, kShellBottomInset),
-                    itemCount: members.length + (isAdmin ? 1 : 0),
+                    itemCount: members.length +
+                        (isAdmin ? 1 : 0) +
+                        (isAdmin && archivedCount > 0 ? 1 : 0),
                     separatorBuilder: (_, _) => const SizedBox(height: 8),
                     itemBuilder: (context, index) {
+                      // The archive sits at the foot of the roster: people
+                      // who have left are part of the chama's history, not
+                      // something to be hidden from it.
+                      if (isAdmin &&
+                          archivedCount > 0 &&
+                          index == members.length + 1) {
+                        return _ArchiveShortcut(
+                            chamaId: chamaId, count: archivedCount);
+                      }
                       // The spreadsheet route belongs where the roster is: a
                       // chairperson putting a chama's history in is looking at this
                       // list when they realise they are not going to type it all one
@@ -222,25 +239,32 @@ class _MemberMenu extends ConsumerWidget {
     ref.invalidate(chamaMembersProvider(chamaId));
   }
 
-  Future<void> _remove(BuildContext context, WidgetRef ref) async {
-    final confirmed = await showDialog<bool>(
+  Future<void> _archive(BuildContext context, WidgetRef ref) async {
+    final result = await showDialog<(ArchiveReason, String?)>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Remove member?'),
-        content: const Text(
-            'They will lose access to this chama. Their contribution and loan history is kept.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Remove', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
+      builder: (context) => _ArchiveDialog(member: member),
     );
-    if (confirmed != true) return;
-    await ref.read(chamaRepositoryProvider).removeMember(member.id);
-    ref.invalidate(chamaMembersProvider(chamaId));
+    if (result == null) return;
+    try {
+      await ref.read(chamaRepositoryProvider).archiveMember(
+            memberId: member.id,
+            reason: result.$1,
+            note: result.$2,
+          );
+      ref.invalidate(chamaMembersProvider(chamaId));
+      ref.invalidate(archivedMembersProvider(chamaId));
+      ref.invalidate(chamaReportProvider(chamaId));
+      ref.invalidate(chamaTotalsProvider(chamaId));
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${member.displayName} archived.')),
+        );
+      }
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(friendlyError(e, fallback: 'Could not archive that member.'))));
+    }
   }
 
   @override
@@ -249,11 +273,11 @@ class _MemberMenu extends ConsumerWidget {
       icon: const Icon(Icons.more_vert_rounded, size: 20),
       onSelected: (action) {
         if (action == 'role') _changeRole(context, ref);
-        if (action == 'remove') _remove(context, ref);
+        if (action == 'archive') _archive(context, ref);
       },
       itemBuilder: (context) => const [
         PopupMenuItem(value: 'role', child: Text('Change role')),
-        PopupMenuItem(value: 'remove', child: Text('Remove from chama')),
+        PopupMenuItem(value: 'archive', child: Text('Archive member')),
       ],
     );
   }
@@ -303,6 +327,176 @@ class _SheetsShortcut extends StatelessWidget {
             const SizedBox(width: 8),
             Icon(Icons.chevron_right_rounded, color: Colors.grey.shade500),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+
+/// Why this member is leaving the roster, from a fixed list.
+///
+/// Archiving moves nobody's money: if they still hold shares, those stay
+/// in their name until somebody transfers them, which is a separate and
+/// deliberate act. The dialog says so rather than letting a chairperson
+/// find out later.
+class _ArchiveDialog extends StatefulWidget {
+  const _ArchiveDialog({required this.member});
+
+  final ChamaMember member;
+
+  @override
+  State<_ArchiveDialog> createState() => _ArchiveDialogState();
+}
+
+class _ArchiveDialogState extends State<_ArchiveDialog> {
+  ArchiveReason? _reason;
+  final _noteCtrl = TextEditingController();
+  String? _error;
+
+  @override
+  void dispose() {
+    _noteCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final held = widget.member.balance ?? 0;
+
+    return AlertDialog(
+      title: Text('Archive ${widget.member.displayName}'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'They come off the active roster. Their contributions, loans and '
+              'history stay exactly as they are.',
+              style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600, height: 1.4),
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<ArchiveReason>(
+              initialValue: _reason,
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: 'Reason'),
+              items: [
+                for (final r in ArchiveReason.values)
+                  DropdownMenuItem(value: r, child: Text(r.label)),
+              ],
+              onChanged: (v) => setState(() {
+                _reason = v;
+                _error = null;
+              }),
+            ),
+            if (_reason != null) ...[
+              const SizedBox(height: 12),
+              TextField(
+                controller: _noteCtrl,
+                autofocus: _reason!.needsNote,
+                textCapitalization: TextCapitalization.sentences,
+                onChanged: (_) => setState(() => _error = null),
+                decoration: InputDecoration(
+                  labelText: _reason!.needsNote ? 'What is the reason?' : 'Note (optional)',
+                  hintText: _reason!.needsNote
+                      ? null
+                      : 'Anything the chama should remember',
+                ),
+              ),
+            ],
+            if (held > 0) ...[
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.warning_amber_rounded,
+                        size: 17, color: Colors.orange.shade800),
+                    const SizedBox(width: 9),
+                    Expanded(
+                      child: Text(
+                        'They still hold ${formatMoney(held)}. Archiving does not move '
+                        'it, so the shares stay in their name until someone transfers '
+                        'them. You can do that first if you mean to.',
+                        style: const TextStyle(fontSize: 12, height: 1.4),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            if (_error != null) ...[
+              const SizedBox(height: 10),
+              Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 12.5)),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        ElevatedButton(
+          onPressed: () {
+            final reason = _reason;
+            final note = _noteCtrl.text.trim();
+            if (reason == null) {
+              setState(() => _error = 'Choose a reason');
+              return;
+            }
+            if (reason.needsNote && note.isEmpty) {
+              setState(() => _error = 'Say what the reason is');
+              return;
+            }
+            Navigator.pop(context, (reason, note.isEmpty ? null : note));
+          },
+          child: const Text('Archive'),
+        ),
+      ],
+    );
+  }
+}
+
+
+/// At the foot of the roster: the people who are no longer on it.
+class _ArchiveShortcut extends StatelessWidget {
+  const _ArchiveShortcut({required this.chamaId, required this.count});
+
+  final String chamaId;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () => context.push('/chamas/$chamaId/archive'),
+        child: GlassContainer(
+          padding: const EdgeInsets.all(14),
+          borderRadius: 18,
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: Colors.grey.withValues(alpha: 0.18),
+                child: Icon(Icons.inventory_2_outlined,
+                    size: 17, color: Colors.grey.shade600),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  '$count archived member${count == 1 ? '' : 's'}',
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, color: Colors.grey.shade500),
+            ],
+          ),
         ),
       ),
     );

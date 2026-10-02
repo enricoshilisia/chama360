@@ -8,6 +8,7 @@ import '../../data/chama_repository.dart';
 import '../../domain/models/chama.dart';
 import '../../domain/models/chama_member.dart';
 import '../../domain/models/chama_transaction.dart';
+import '../../domain/models/archived_member.dart';
 import '../../domain/models/share_transfer.dart';
 
 final chamaRepositoryProvider = Provider<ChamaRepository>((ref) {
@@ -62,4 +63,10 @@ final memberTransactionsProvider = FutureProvider.autoDispose
 final shareTransfersProvider =
     FutureProvider.autoDispose.family<List<ShareTransfer>, String>((ref, chamaId) async {
   return ref.watch(chamaRepositoryProvider).shareTransfers(chamaId);
+});
+
+/// Members who have left the roster. Admin-only, enforced in the database.
+final archivedMembersProvider =
+    FutureProvider.autoDispose.family<List<ArchivedMember>, String>((ref, chamaId) async {
+  return ref.watch(chamaRepositoryProvider).archivedMembers(chamaId);
 });

@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/services/file_share.dart';
 import '../../../../core/theme/layout.dart';
 import '../../../../core/utils/currency.dart';
+import '../../../../core/utils/error_message.dart';
 import '../../../../core/widgets/content_width.dart';
 import '../../../../core/widgets/glass_container.dart';
 import '../../../reports/presentation/providers/reports_providers.dart';
@@ -199,18 +200,12 @@ class _ContributionSheetsScreenState
         ),
       );
     } catch (e) {
-      setState(() => _importError = _readable(e));
+      setState(() => _importError = friendlyError(e, fallback: 'Something went wrong. Try again.'));
     } finally {
       if (mounted) setState(() => _importing = false);
     }
   }
 
-  static String _readable(Object e) {
-    final raw = e.toString();
-    final match = RegExp(r'message:\s*([^,]+)').firstMatch(raw);
-    final message = match?.group(1)?.trim() ?? raw;
-    return message.isEmpty ? 'Could not import that file.' : message;
-  }
 
   @override
   Widget build(BuildContext context) {

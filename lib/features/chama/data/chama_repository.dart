@@ -4,6 +4,7 @@ import '../../../core/services/local_db.dart';
 import '../domain/models/chama.dart';
 import '../domain/models/chama_member.dart';
 import '../domain/models/chama_transaction.dart';
+import '../domain/models/archived_member.dart';
 import '../domain/models/share_transfer.dart';
 import '../../loans/domain/models/loan.dart';
 
@@ -263,10 +264,35 @@ class ChamaRepository {
     await _client.from('chama_members').update({'role': newRole}).eq('id', memberId);
   }
 
-  /// Soft-removes a member (status -> 'removed') rather than deleting the
-  /// row, so their historical contributions/loans stay intact.
-  Future<void> removeMember(String memberId) async {
-    await _client.from('chama_members').update({'status': 'removed'}).eq('id', memberId);
+  /// Takes a member off the active roster with the reason on the record —
+  /// see archive_member() in 0014_archive_member.sql. Their contributions,
+  /// loans and ledger entries stay exactly as they are; nothing is
+  /// deleted and no money moves.
+  Future<void> archiveMember({
+    required String memberId,
+    required ArchiveReason reason,
+    String? note,
+  }) async {
+    await _client.rpc('archive_member', params: {
+      'p_member_id': memberId,
+      'p_reason': reason.value,
+      'p_note': note,
+    });
+  }
+
+  /// Puts an archived member back. Archiving the wrong person is an easy
+  /// mistake and no way back would make it an expensive one.
+  Future<void> restoreMember(String memberId) async {
+    await _client.rpc('restore_member', params: {'p_member_id': memberId});
+  }
+
+  /// Everyone who has left the roster, why, and on whose authority.
+  Future<List<ArchivedMember>> archivedMembers(String chamaId) async {
+    final rows = await _client
+        .rpc('chama_archived_members', params: {'p_chama_id': chamaId});
+    return (rows as List)
+        .map((r) => ArchivedMember.fromJson(r as Map<String, dynamic>))
+        .toList();
   }
 
   /// Chairperson/treasurer adds someone with no app account of their own —

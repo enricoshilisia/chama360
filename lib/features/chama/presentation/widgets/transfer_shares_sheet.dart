@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/currency.dart';
+import '../../../../core/utils/error_message.dart';
 import '../../../reports/presentation/providers/reports_providers.dart';
 import '../../domain/models/chama_member.dart';
 import '../providers/chama_providers.dart';
@@ -105,18 +106,12 @@ class _TransferSharesSheetState extends ConsumerState<_TransferSharesSheet> {
         SnackBar(content: Text('${formatMoney(amount)} transferred.')),
       );
     } catch (e) {
-      setState(() => _error = _readable(e));
+      setState(() => _error = friendlyError(e, fallback: 'Something went wrong. Try again.'));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
   }
 
-  static String _readable(Object e) {
-    final raw = e.toString();
-    final match = RegExp(r'message:\s*([^,]+)').firstMatch(raw);
-    final message = match?.group(1)?.trim() ?? raw;
-    return message.isEmpty ? 'Could not transfer those shares.' : message;
-  }
 
   @override
   Widget build(BuildContext context) {

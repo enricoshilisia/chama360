@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/currency.dart';
+import '../../../../core/utils/error_message.dart';
 import '../../../chama/presentation/providers/chama_providers.dart';
 import '../../domain/models/chama_report.dart';
 import '../providers/reports_providers.dart';
@@ -105,18 +106,12 @@ class _ContributionSheetState extends ConsumerState<_ContributionSheet> {
     } catch (e) {
       // The database is the one enforcing who may reverse what, so its
       // message is the useful one to show.
-      setState(() => _error = _readable(e));
+      setState(() => _error = friendlyError(e, fallback: 'Something went wrong. Try again.'));
     } finally {
       if (mounted) setState(() => _working = false);
     }
   }
 
-  static String _readable(Object e) {
-    final raw = e.toString();
-    final match = RegExp(r'message:\s*([^,]+)').firstMatch(raw);
-    final message = match?.group(1)?.trim() ?? raw;
-    return message.isEmpty ? 'Could not reverse this contribution.' : message;
-  }
 
   @override
   Widget build(BuildContext context) {
