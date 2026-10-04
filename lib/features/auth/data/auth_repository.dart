@@ -79,7 +79,9 @@ class AuthRepository {
   Future<void> resetPassword(String email) {
     return _client.auth.resetPasswordForEmail(
       email,
-      redirectTo: kIsWeb ? AuthRedirects.web : AuthRedirects.appDeepLink,
+      redirectTo: kIsWeb
+          ? AuthRedirects.webPasswordReset
+          : AuthRedirects.appPasswordReset,
     );
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/config/launch_intent.dart';
 import '../../../../core/services/biometric_providers.dart';
 import '../../../../core/utils/phone_identity.dart';
 import '../../../../core/widgets/glass_container.dart';
@@ -25,6 +26,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _obscure = true;
   bool _usePhone = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    // An expired or already-used link from an inbox lands here with no
+    // session. Saying so beats showing a bare sign-in form to someone who
+    // thinks they just reset their password.
+    final linkError = LaunchIntent.linkError;
+    if (linkError != null) {
+      _error = linkError;
+      LaunchIntent.clearLinkError();
+    }
+  }
 
   @override
   void dispose() {
