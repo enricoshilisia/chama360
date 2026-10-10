@@ -1,0 +1,72 @@
+name: Keep Supabase awake
+
+# Supabase pauses a free project after about a week with no requests, and
+# restoring it takes minutes — during which the app is simply down for
+# whoever opened it. This makes one harmless request a day so that never
+# happens.
+#
+# What it does NOT do: write anything, read anyone's data, or touch the
+# schema. The request is a SELECT through PostgREST that row-level
+# security answers with an empty list, using the publishable key that
+# already ships inside the web app. Its only purpose is to be traffic.
+
+on:
+  schedule:
+    # 06:17 UTC daily. An odd minute on purpose: GitHub delays jobs
+    # scheduled on the hour, when everyone else's crons fire.
+    - cron: '17 6 * * *'
+  # So it can be run by hand after a pause, or to check it still works.
+  workflow_dispatch:
+
+concurrency:
+  group: keep-supabase-awake
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping the database through PostgREST
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_ANON_KEY:-}" ]; then
+            echo "::error::SUPABASE_URL or SUPABASE_ANON_KEY repository variable is not set."
+            exit 1
+          fi
+
+          # A paused project can take a couple of minutes to wake, so a
+          # single failed curl is not proof of anything. Try a few times
+          # before giving up.
+          attempt=1
+          max=5
+          until [ "$attempt" -gt "$max" ]; do
+            code=$(curl -sS -o /tmp/body.txt -w '%{http_code}' \
+              --max-time 60 \
+              -H "apikey: ${SUPABASE_ANON_KEY}" \
+              -H "Accept: application/json" \
+              "${SUPABASE_URL}/rest/v1/chamas?select=id&limit=1" || echo 000)
+
+            if [ "$code" = "200" ]; then
+              echo "Database answered (HTTP $code) on attempt $attempt."
+              echo "### Supabase is awake :white_check_mark:" >> "$GITHUB_STEP_SUMMARY"
+              echo "PostgREST answered \`HTTP $code\` at $(date -u '+%Y-%m-%d %H:%M UTC')." >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+
+            echo "Attempt $attempt/$max got HTTP $code:"
+            head -c 300 /tmp/body.txt || true
+            echo
+            attempt=$((attempt + 1))
+            [ "$attempt" -le "$max" ] && sleep 30
+          done
+
+          # Failing loudly matters: a keep-alive that quietly stops
+          # working is worse than not having one, because nobody finds out
+          # until the project has already paused.
+          echo "::error::Supabase did not answer after $max attempts. The project may be paused, or the key may have been rotated."
+          exit 1
