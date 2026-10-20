@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import '../../loans/domain/models/loan.dart';
 import '../domain/models/chama_report.dart';
 
 /// The chama's report as a document you can print, email or take to a
@@ -29,6 +30,7 @@ class ReportPdf {
     required ChamaReport report,
     required String chamaName,
     required String currency,
+    List<Loan> loans = const [],
   }) async {
     final doc = pw.Document(title: '$chamaName — contribution report');
 
@@ -99,6 +101,10 @@ class ReportPdf {
           if (report.memberBreakdown.isNotEmpty && shown.isEmpty) ...[
             pw.SizedBox(height: 20),
             _plainMemberTotals(members, money),
+          ],
+          if (loans.isNotEmpty) ...[
+            pw.SizedBox(height: 20),
+            _loanBook(loans, report, money),
           ],
         ],
       ),
@@ -338,6 +344,93 @@ class ReportPdf {
               ]),
           ],
         ),
+      ],
+    );
+  }
+
+  /// Every loan the chama has out, with what it is charging. The screen
+  /// shows these one card at a time; a page can show the book.
+  static pw.Widget _loanBook(
+    List<Loan> loans,
+    ChamaReport report,
+    String Function(double) money,
+  ) {
+    final sorted = [...loans]..sort((a, b) {
+        if ((a.status == 'active') != (b.status == 'active')) {
+          return a.status == 'active' ? -1 : 1;
+        }
+        return b.principal.compareTo(a.principal);
+      });
+
+    final principal = sorted.fold<double>(0, (s, l) => s + l.principal);
+    final repaid = sorted.fold<double>(0, (s, l) => s + l.amountRepaid);
+    final outstanding = sorted
+        .where((l) => l.status == 'active')
+        .fold<double>(0, (s, l) => s + l.outstanding);
+
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        _heading('The loan book'),
+        pw.SizedBox(height: 2),
+        pw.Text(
+          'Interest earned ${money(report.interestEarned)} on loans repaid; '
+          '${money(report.interestExpected)} more to come in if every loan '
+          'runs to its deadline. Paying early costs less.',
+          style: const pw.TextStyle(fontSize: 8.5, color: _muted),
+        ),
+        pw.SizedBox(height: 6),
+        pw.Table(
+          border: pw.TableBorder.all(color: _rule, width: 0.5),
+          columnWidths: const {
+            0: pw.FlexColumnWidth(2.6),
+            1: pw.FlexColumnWidth(1.3),
+            2: pw.FlexColumnWidth(1.3),
+            3: pw.FlexColumnWidth(1.3),
+            4: pw.FlexColumnWidth(1.3),
+            5: pw.FlexColumnWidth(1.3),
+            6: pw.FlexColumnWidth(1.2),
+          },
+          children: [
+            pw.TableRow(
+              decoration: const pw.BoxDecoration(color: _band),
+              children: [
+                _cell('Borrower', bold: true),
+                _cell('Rate', bold: true),
+                _cell('Borrowed', bold: true, align: pw.TextAlign.right),
+                _cell('Interest', bold: true, align: pw.TextAlign.right),
+                _cell('Repayable', bold: true, align: pw.TextAlign.right),
+                _cell('Repaid', bold: true, align: pw.TextAlign.right),
+                _cell('Status', bold: true),
+              ],
+            ),
+            for (final l in sorted)
+              pw.TableRow(children: [
+                _cell(l.borrowerName ?? 'Member'),
+                _cell(l.rateLabel),
+                _cell(money(l.principal), align: pw.TextAlign.right),
+                _cell(money(l.interestAmount), align: pw.TextAlign.right),
+                _cell(money(l.totalDue), align: pw.TextAlign.right, bold: true),
+                _cell(money(l.amountRepaid), align: pw.TextAlign.right),
+                _cell(l.status),
+              ]),
+            pw.TableRow(
+              decoration: const pw.BoxDecoration(color: _band),
+              children: [
+                _cell('Total', bold: true),
+                _cell(''),
+                _cell(money(principal), bold: true, align: pw.TextAlign.right),
+                _cell('', align: pw.TextAlign.right),
+                _cell('', align: pw.TextAlign.right),
+                _cell(money(repaid), bold: true, align: pw.TextAlign.right),
+                _cell(''),
+              ],
+            ),
+          ],
+        ),
+        pw.SizedBox(height: 6),
+        pw.Text('Still owed to the chama: ${money(outstanding)}',
+            style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
       ],
     );
   }

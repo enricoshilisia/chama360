@@ -89,6 +89,16 @@ class LoansRepository {
     });
   }
 
+  /// What each loan in the chama would cost to clear today. One call
+  /// rather than one per loan — see chama_loan_payoffs() in 0017.
+  Future<List<LoanPayoff>> payoffsFor(String chamaId) async {
+    final rows = await _client
+        .rpc('chama_loan_payoffs', params: {'p_chama_id': chamaId});
+    return (rows as List)
+        .map((r) => LoanPayoff.fromJson(r as Map<String, dynamic>))
+        .toList();
+  }
+
   Future<List<LoanRepayment>> repaymentsFor(String loanId) async {
     final rows = await _client
         .from('loan_repayments')

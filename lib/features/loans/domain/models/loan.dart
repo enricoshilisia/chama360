@@ -125,3 +125,86 @@ class LoanRepayment {
         repaidAt: DateTime.parse(json['repaid_at'] as String),
       );
 }
+
+
+/// What a loan would cost to clear today, as opposed to at its deadline.
+///
+/// Interest accrues with time (see 0017_early_settlement.sql), so a
+/// member who borrowed in December and clears in June pays six months of
+/// it, not twelve. This is the figure to collect, and what it saves.
+class LoanPayoff {
+  const LoanPayoff({
+    required this.loanId,
+    required this.memberId,
+    required this.memberName,
+    required this.principal,
+    required this.interestRate,
+    required this.interestPeriod,
+    required this.issuedAt,
+    required this.dueDate,
+    required this.status,
+    required this.amountRepaid,
+    required this.scheduledTotal,
+    required this.monthsRun,
+    required this.monthsScheduled,
+    required this.interestSoFar,
+    required this.settleToday,
+    required this.saving,
+  });
+
+  final String loanId;
+  final String memberId;
+  final String memberName;
+  final double principal;
+  final double interestRate;
+  final InterestPeriod interestPeriod;
+  final DateTime? issuedAt;
+  final DateTime? dueDate;
+  final String status;
+  final double amountRepaid;
+
+  /// What it costs carried all the way to the due date.
+  final double scheduledTotal;
+
+  final int monthsRun;
+  final int monthsScheduled;
+
+  /// Interest for the months that have actually run.
+  final double interestSoFar;
+
+  /// Hand over this much today and the loan is cleared.
+  final double settleToday;
+
+  /// What clearing today saves against carrying it to term.
+  final double saving;
+
+  bool get isActive => status == 'active';
+
+  /// Only worth showing when there is something to save and time left to
+  /// save it in.
+  bool get savesMoney => isActive && saving > 0;
+
+  static double _d(Object? v) => (v as num?)?.toDouble() ?? 0;
+
+  factory LoanPayoff.fromJson(Map<String, dynamic> json) => LoanPayoff(
+        loanId: json['loan_id'] as String,
+        memberId: json['member_id'] as String,
+        memberName: json['member_name'] as String? ?? 'Member',
+        principal: _d(json['principal']),
+        interestRate: _d(json['interest_rate']),
+        interestPeriod: InterestPeriod.fromValue(json['interest_period'] as String?),
+        issuedAt: json['issued_at'] == null
+            ? null
+            : DateTime.parse(json['issued_at'] as String),
+        dueDate:
+            json['due_date'] == null ? null : DateTime.parse(json['due_date'] as String),
+        status: json['status'] as String? ?? 'active',
+        amountRepaid: _d(json['amount_repaid']),
+        scheduledTotal: _d(json['scheduled_total']),
+        monthsRun: _d(json['months_run']).round(),
+        monthsScheduled: _d(json['months_scheduled']).round(),
+        interestSoFar: _d(json['interest_so_far']),
+        settleToday: _d(json['settle_today']),
+        saving: _d(json['saving']),
+      );
+}

@@ -104,6 +104,7 @@ class LoanDetailScreen extends ConsumerWidget {
                 const SizedBox(height: 16),
                 if (isAdmin && (loan.status == 'pending' || loan.status == 'rejected'))
                   LoanDecisionButtons(loan: loan),
+                if (loan.status == 'active') _SettleToday(loan: loan),
                 if (isAdmin && loan.status == 'active') _RecordRepaymentAction(loan: loan),
                 const SizedBox(height: 20),
                 if (loan.status != 'pending' && loan.status != 'rejected') ...[
@@ -211,7 +212,18 @@ class _RecordRepaymentActionState extends ConsumerState<_RecordRepaymentAction> 
   bool _busy = false;
 
   Future<void> _record() async {
-    final amountCtrl = TextEditingController();
+    // Prefilled with what it takes to clear the loan today, because that
+    // is the figure the chairperson is almost always collecting — and
+    // because it is less than the scheduled total, which is the whole
+    // point of letting people pay early.
+    final payoff = ref
+        .read(loanPayoffsProvider(widget.loan.chamaId))
+        .value
+        ?.where((p) => p.loanId == widget.loan.id)
+        .firstOrNull;
+    final suggested = payoff?.settleToday ?? widget.loan.outstanding;
+    final amountCtrl =
+        TextEditingController(text: suggested.toStringAsFixed(2));
     final amount = await showDialog<double>(
       context: context,
       builder: (context) => AlertDialog(
@@ -221,7 +233,11 @@ class _RecordRepaymentActionState extends ConsumerState<_RecordRepaymentAction> 
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: InputDecoration(
             labelText: 'Amount',
-            helperText: 'Outstanding: ${formatMoney(widget.loan.outstanding)}',
+            helperText: payoff == null
+                ? 'Outstanding: ${formatMoney(widget.loan.outstanding)}'
+                : 'Clears the loan today: ${formatMoney(payoff.settleToday)}'
+                    '${payoff.saving > 0 ? '  ·  saves ${formatMoney(payoff.saving)}' : ''}',
+            helperMaxLines: 2,
           ),
           autofocus: true,
         ),
@@ -243,6 +259,7 @@ class _RecordRepaymentActionState extends ConsumerState<_RecordRepaymentAction> 
             amount: amount,
           );
       ref.invalidate(chamaLoansProvider(widget.loan.chamaId));
+      ref.invalidate(loanPayoffsProvider(widget.loan.chamaId));
       ref.invalidate(loanRepaymentsProvider(widget.loan.id));
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -258,6 +275,78 @@ class _RecordRepaymentActionState extends ConsumerState<_RecordRepaymentAction> 
               height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
           : const Icon(Icons.add_card_rounded),
       label: const Text('Record repayment'),
+    );
+  }
+}
+
+
+/// What this loan costs to clear today, and what that saves.
+///
+/// Interest runs with time, so the figure on the loan is what it costs
+/// carried to the deadline — not what it costs now. A member paying in
+/// June should not be quoted December's number.
+class _SettleToday extends ConsumerWidget {
+  const _SettleToday({required this.loan});
+
+  final Loan loan;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final payoffs = ref.watch(loanPayoffsProvider(loan.chamaId)).value;
+    if (payoffs == null) return const SizedBox.shrink();
+
+    final p = payoffs.where((x) => x.loanId == loan.id).firstOrNull;
+    if (p == null || !p.isActive) return const SizedBox.shrink();
+
+    final primary = Theme.of(context).colorScheme.primary;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: GlassContainer(
+        padding: const EdgeInsets.all(16),
+        borderRadius: 18,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.schedule_rounded, size: 18, color: primary),
+                const SizedBox(width: 9),
+                const Expanded(
+                  child: Text('Clear it today',
+                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                ),
+                Text(formatMoney(p.settleToday),
+                    style: TextStyle(
+                        fontWeight: FontWeight.w800, fontSize: 16, color: primary)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '${p.monthsRun} of ${p.monthsScheduled} month'
+              '${p.monthsScheduled == 1 ? '' : 's'} have run, so interest so far is '
+              '${formatMoney(p.interestSoFar)}.',
+              style: TextStyle(fontSize: 12.5, color: Colors.grey.shade700, height: 1.4),
+            ),
+            if (p.savesMoney) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: primary.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  'Paying now instead of waiting for the deadline saves '
+                  '${formatMoney(p.saving)} in interest '
+                  '(${formatMoney(p.scheduledTotal)} if carried to term).',
+                  style: const TextStyle(fontSize: 12, height: 1.4),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

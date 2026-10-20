@@ -44,10 +44,16 @@ class _ChamaReportScreenState extends ConsumerState<ChamaReportScreen>
   Future<void> _exportPdf(ChamaReport report, String chamaName, String currency) async {
     setState(() => _exporting = true);
     try {
+      // Already loaded for the Borrowing tab; the document should not
+      // disagree with the screen it was exported from.
+      final List<Loan> loans =
+          ref.read(chamaLoansProvider(widget.chamaId)).value ??
+              await ref.read(chamaLoansProvider(widget.chamaId).future);
       final bytes = await ReportPdf.build(
         report: report,
         chamaName: chamaName,
         currency: currency,
+        loans: loans,
       );
       final safe = chamaName
           .replaceAll(RegExp(r'[^A-Za-z0-9]+'), '-')
@@ -915,12 +921,36 @@ class _BorrowingTab extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 10),
-            _Stat(
-              label: 'Still owed to the chama',
-              value: formatMoney(outstanding, currency: currency),
-              icon: Icons.account_balance_wallet_outlined,
-              color: Colors.orange.shade700,
+            Row(
+              children: [
+                Expanded(
+                  child: _Stat(
+                    label: 'Still owed to the chama',
+                    value: formatMoney(outstanding, currency: currency),
+                    icon: Icons.account_balance_wallet_outlined,
+                    color: Colors.orange.shade700,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _Stat(
+                    label: 'Interest earned',
+                    value: formatMoney(report.interestEarned, currency: currency),
+                    icon: Icons.trending_up_rounded,
+                    color: AppColors.seedDark,
+                  ),
+                ),
+              ],
             ),
+            if (report.interestExpected > 0) ...[
+              const SizedBox(height: 10),
+              _Stat(
+                label: 'Interest still to come in, if every loan runs to term',
+                value: formatMoney(report.interestExpected, currency: currency),
+                icon: Icons.hourglass_bottom_rounded,
+                color: Colors.blueGrey,
+              ),
+            ],
             const SizedBox(height: 18),
             Text('Loans',
                 style: Theme.of(context)
@@ -1072,8 +1102,19 @@ class _LoanRow extends StatelessWidget {
                 ),
               ),
             ],
+            const SizedBox(height: 8),
+            // The terms, not just the amounts: a loan book that does not
+            // say what it is charging is half a loan book.
+            Text(
+              [
+                loan.rateLabel,
+                if (loan.interestAmount > 0)
+                  'interest ${formatMoney(loan.interestAmount, currency: currency)}',
+              ].join('  ·  '),
+              style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
+            ),
             if (loan.dueDate != null) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
               Text(
                 '${isOverdue ? 'Was due' : 'Due'} ${DateFormat('d MMM yyyy').format(loan.dueDate!)}',
                 style: TextStyle(
