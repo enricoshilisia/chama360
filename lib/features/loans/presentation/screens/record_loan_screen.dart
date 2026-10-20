@@ -268,13 +268,25 @@ class _InterestPreview extends StatelessWidget {
   final DateTime issuedAt;
   final DateTime? dueDate;
 
-  /// Mirrors loan_term_months() in 0012: started months, minimum one, so
-  /// the figure here is the figure the database will store.
+  /// Mirrors loan_term_months() in 0016: complete calendar months plus
+  /// the one that has been started, minimum one, so the figure shown here
+  /// is the figure the database will store.
+  ///
+  /// Counted on a calendar rather than in 30-day blocks. Dividing days by
+  /// 30 made a full year 12.17 months, which rounded up to 13 and charged
+  /// every annual loan an extra month of interest.
   int get _termMonths {
-    if (dueDate == null) return 1;
-    final days = dueDate!.difference(issuedAt).inDays;
-    if (days <= 0) return 1;
-    return (days / 30).ceil().clamp(1, 1200);
+    final due = dueDate;
+    if (due == null || !due.isAfter(issuedAt)) return 1;
+
+    var months = (due.year - issuedAt.year) * 12 + (due.month - issuedAt.month);
+    // The last month is only complete once the day of the month comes
+    // round again; before that it is a month begun.
+    final dayShort = due.day < issuedAt.day;
+    if (dayShort) months -= 1;
+    final remainder = dayShort || due.day > issuedAt.day;
+
+    return (months + (remainder ? 1 : 0)).clamp(1, 1200);
   }
 
   @override
