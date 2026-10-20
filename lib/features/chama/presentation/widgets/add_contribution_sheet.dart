@@ -89,7 +89,7 @@ class _AddContributionSheetState extends ConsumerState<AddContributionSheet> {
   Widget build(BuildContext context) {
     final online = ref.watch(isOnlineProvider);
     final chama = ref.watch(chamaByIdProvider(widget.chamaId));
-    final isAdmin = chama != null && ChamaRole.isAdmin(chama.role);
+    final isAdmin = chama != null && ChamaRole.canHandleMoney(chama.role);
     final membersAsync = ref.watch(chamaMembersProvider(widget.chamaId));
     final isDark = Theme.of(context).brightness == Brightness.dark;
 

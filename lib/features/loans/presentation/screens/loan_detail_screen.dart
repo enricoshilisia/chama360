@@ -20,7 +20,9 @@ class LoanDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final chama = ref.watch(chamaByIdProvider(chamaId));
     final loansAsync = ref.watch(chamaLoansProvider(chamaId));
-    final isAdmin = chama != null && ChamaRole.isAdmin(chama.role);
+    final isAdmin = chama != null && ChamaRole.canViewAll(chama.role);
+    // Recording a repayment moves money, so it is the treasurer's.
+    final canHandleMoney = chama != null && ChamaRole.canHandleMoney(chama.role);
     final currency = chama?.currency ?? 'KES';
 
     return Scaffold(
@@ -105,7 +107,7 @@ class LoanDetailScreen extends ConsumerWidget {
                 if (isAdmin && (loan.status == 'pending' || loan.status == 'rejected'))
                   LoanDecisionButtons(loan: loan),
                 if (loan.status == 'active') _SettleToday(loan: loan),
-                if (isAdmin && loan.status == 'active') _RecordRepaymentAction(loan: loan),
+                if (canHandleMoney && loan.status == 'active') _RecordRepaymentAction(loan: loan),
                 const SizedBox(height: 20),
                 if (loan.status != 'pending' && loan.status != 'rejected') ...[
                   const Text('Repayments',

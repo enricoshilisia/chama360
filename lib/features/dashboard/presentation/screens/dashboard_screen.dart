@@ -359,7 +359,7 @@ class _QuickActions extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final canRecord = ChamaRole.isAdmin(chama.role);
+    final canRecord = ChamaRole.canHandleMoney(chama.role);
     return Row(
       children: [
         if (canRecord) ...[
@@ -485,7 +485,7 @@ class _HeroBalanceCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isAdmin = ChamaRole.isAdmin(chama.role);
+    final isAdmin = ChamaRole.canViewAll(chama.role);
     final totals = ref.watch(chamaTotalsProvider(chama.id)).value;
 
     final headlineLabel = isAdmin ? 'Group savings' : 'Your contributions';

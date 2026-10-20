@@ -120,7 +120,8 @@ class MemberDetailScreen extends ConsumerWidget {
                   else
                     _ResetPasswordButton(chamaId: chamaId, member: member),
                   // Only worth offering when there is something to move.
-                  if ((member.balance ?? 0) > 0) ...[
+                  if ((member.balance ?? 0) > 0 &&
+                      ChamaRole.canHandleMoney(chama.role)) ...[
                     const SizedBox(height: 10),
                     OutlinedButton.icon(
                       onPressed: () => showTransferSharesSheet(

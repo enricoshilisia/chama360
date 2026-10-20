@@ -59,13 +59,16 @@ class _ChamaMembersScreenState extends ConsumerState<ChamaMembersScreen> {
 
     final membersAsync = ref.watch(chamaMembersProvider(chamaId));
     final chama = ref.watch(chamaByIdProvider(chamaId));
-    final isAdmin = chama != null && ChamaRole.isAdmin(chama.role);
+    // Three different questions, three different answers.
+    final isAdmin = chama != null && ChamaRole.canViewAll(chama.role);
+    final canManageRoster = chama != null && ChamaRole.isAdmin(chama.role);
+    final canHandleMoney = chama != null && ChamaRole.canHandleMoney(chama.role);
     final myUserId = ref.watch(currentUserProvider)?.id;
 
     return Scaffold(
       backgroundColor: embedded ? Colors.transparent : null,
       appBar: embedded ? null : AppBar(title: const Text('Members')),
-      floatingActionButton: isAdmin
+      floatingActionButton: canManageRoster
           ? Padding(
               padding: const EdgeInsets.only(bottom: kFabBottomInset),
               child: FloatingActionButton.extended(
@@ -87,7 +90,9 @@ class _ChamaMembersScreenState extends ConsumerState<ChamaMembersScreen> {
               : all.where((m) => m.displayName.toLowerCase().contains(q)).toList();
 
           final archivedCount =
-              isAdmin ? (ref.watch(archivedMembersProvider(chamaId)).value?.length ?? 0) : 0;
+              canManageRoster
+                  ? (ref.watch(archivedMembersProvider(chamaId)).value?.length ?? 0)
+                  : 0;
 
           // The search box sits outside the scroll view, so it stays put
           // while a long roster moves under it — scrolling to the top to
@@ -130,16 +135,16 @@ class _ChamaMembersScreenState extends ConsumerState<ChamaMembersScreen> {
                   child: ListView.separated(
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, kShellBottomInset),
                     itemCount: members.length +
-                        (isAdmin ? 1 : 0) +
-                        (isAdmin && archivedCount > 0 ? 1 : 0),
+                        (canHandleMoney ? 1 : 0) +
+                        (canManageRoster && archivedCount > 0 ? 1 : 0),
                     separatorBuilder: (_, _) => const SizedBox(height: 8),
                     itemBuilder: (context, index) {
                       // The archive sits at the foot of the roster: people
                       // who have left are part of the chama's history, not
                       // something to be hidden from it.
-                      if (isAdmin &&
+                      if (canManageRoster &&
                           archivedCount > 0 &&
-                          index == members.length + 1) {
+                          index == members.length + (canHandleMoney ? 1 : 0)) {
                         return _ArchiveShortcut(
                             chamaId: chamaId, count: archivedCount);
                       }
@@ -147,10 +152,10 @@ class _ChamaMembersScreenState extends ConsumerState<ChamaMembersScreen> {
                       // chairperson putting a chama's history in is looking at this
                       // list when they realise they are not going to type it all one
                       // modal at a time. It scrolls away; the search does not.
-                      if (isAdmin && index == 0) {
+                      if (canHandleMoney && index == 0) {
                         return _SheetsShortcut(chamaId: chamaId);
                       }
-                      final m = members[isAdmin ? index - 1 : index];
+                      final m = members[canHandleMoney ? index - 1 : index];
                       final isSelf = m.isSelf || (m.userId != null && m.userId == myUserId);
 
                       // A member can only open their own record; everyone else is
@@ -184,7 +189,8 @@ class _ChamaMembersScreenState extends ConsumerState<ChamaMembersScreen> {
                                     style: const TextStyle(fontWeight: FontWeight.w600))
                               else if (canOpen)
                                 const Icon(Icons.chevron_right_rounded, size: 20),
-                              if (isAdmin && !isSelf) _MemberMenu(chamaId: chamaId, member: m),
+                              if (canManageRoster && !isSelf)
+                                _MemberMenu(chamaId: chamaId, member: m),
                             ],
                           ),
                         ),

@@ -19,7 +19,7 @@ class LoansScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final chama = ref.watch(chamaByIdProvider(chamaId));
     final loansAsync = ref.watch(chamaLoansProvider(chamaId));
-    final isAdmin = chama != null && ChamaRole.isAdmin(chama.role);
+    final isAdmin = chama != null && ChamaRole.canViewAll(chama.role);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Loans')),

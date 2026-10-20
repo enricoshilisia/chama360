@@ -98,7 +98,9 @@ class _ChamaReportScreenState extends ConsumerState<ChamaReportScreen>
     final reportAsync = ref.watch(chamaReportProvider(widget.chamaId));
     final chama = ref.watch(chamaByIdProvider(widget.chamaId));
     final currency = chama?.currency ?? 'KES';
-    final isAdmin = chama != null && ChamaRole.isAdmin(chama.role);
+    final isAdmin = chama != null && ChamaRole.canViewAll(chama.role);
+    // Exporting is reading; importing and reversing are not.
+    final canHandleMoney = chama != null && ChamaRole.canHandleMoney(chama.role);
     final controller = _controllerFor(isAdmin ? 5 : 1);
 
     return Scaffold(
@@ -122,7 +124,7 @@ class _ChamaReportScreenState extends ConsumerState<ChamaReportScreen>
                       _exportPdf(report, chama.name, currency);
                     },
             ),
-          if (isAdmin)
+          if (canHandleMoney)
             IconButton(
               tooltip: 'Contribution sheets',
               icon: const Icon(Icons.table_chart_outlined),
@@ -177,7 +179,7 @@ class _ChamaReportScreenState extends ConsumerState<ChamaReportScreen>
                     report: report,
                     currency: currency,
                     chamaId: widget.chamaId,
-                    canReverse: isAdmin,
+                    canReverse: canHandleMoney,
                   ),
                   _BorrowingTab(
                     chamaId: widget.chamaId,

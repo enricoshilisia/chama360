@@ -27,7 +27,7 @@ class ChamaReportSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final chama = ref.watch(chamaByIdProvider(chamaId));
-    final isAdmin = chama != null && ChamaRole.isAdmin(chama.role);
+    final isAdmin = chama != null && ChamaRole.canViewAll(chama.role);
 
     // A member's own report query only returns their own contributions,
     // so summing it here would label their personal total as the chama's.
