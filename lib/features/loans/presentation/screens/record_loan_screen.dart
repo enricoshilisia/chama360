@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../../../../core/theme/layout.dart';
 import '../../../../core/utils/currency.dart';
@@ -26,6 +27,7 @@ class _RecordLoanScreenState extends ConsumerState<RecordLoanScreen> {
   final _purposeCtrl = TextEditingController();
   String? _memberId;
   InterestPeriod _period = InterestPeriod.oneOff;
+  DateTime _issuedAt = DateTime.now();
   DateTime? _dueDate;
   bool _loading = false;
   String? _error;
@@ -57,6 +59,7 @@ class _RecordLoanScreenState extends ConsumerState<RecordLoanScreen> {
             principal: double.parse(_amountCtrl.text.trim()),
             interestRate: rate,
             interestPeriod: _period,
+            issuedAt: _issuedAt,
             purpose: _purposeCtrl.text.trim().isEmpty ? null : _purposeCtrl.text.trim(),
             dueDate: _dueDate,
           );
@@ -152,6 +155,7 @@ class _RecordLoanScreenState extends ConsumerState<RecordLoanScreen> {
                 principal: double.tryParse(_amountCtrl.text.trim()) ?? 0,
                 rate: double.tryParse(_rateCtrl.text.trim()) ?? 0,
                 period: _period,
+                issuedAt: _issuedAt,
                 dueDate: _dueDate,
               ),
               const SizedBox(height: 14),
@@ -159,6 +163,37 @@ class _RecordLoanScreenState extends ConsumerState<RecordLoanScreen> {
                 controller: _purposeCtrl,
                 maxLines: 2,
                 decoration: const InputDecoration(labelText: 'Purpose (optional)'),
+              ),
+              const SizedBox(height: 14),
+              // When the money actually went out. It drives the term, so
+              // on a rate charged per month it decides what is owed — a
+              // loan taken out last year costs more than one taken today.
+              InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: _issuedAt,
+                    firstDate: DateTime(2015, 1, 1),
+                    lastDate: DateTime.now(),
+                    helpText: 'When was this loan taken out?',
+                  );
+                  if (picked == null) return;
+                  setState(() {
+                    _issuedAt = picked;
+                    if (_dueDate != null && _dueDate!.isBefore(picked)) {
+                      _dueDate = null;
+                    }
+                    _error = null;
+                  });
+                },
+                child: InputDecorator(
+                  decoration: const InputDecoration(
+                    labelText: 'Date taken',
+                    prefixIcon: Icon(Icons.event_outlined, size: 18),
+                  ),
+                  child: Text(DateFormat('d MMM yyyy').format(_issuedAt)),
+                ),
               ),
               const SizedBox(height: 14),
               Row(
@@ -175,9 +210,10 @@ class _RecordLoanScreenState extends ConsumerState<RecordLoanScreen> {
                     onPressed: () async {
                       final picked = await showDatePicker(
                         context: context,
-                        initialDate: DateTime.now().add(const Duration(days: 30)),
-                        firstDate: DateTime.now(),
-                        lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
+                        initialDate: _dueDate ??
+                            _issuedAt.add(const Duration(days: 30)),
+                        firstDate: _issuedAt,
+                        lastDate: _issuedAt.add(const Duration(days: 365 * 5)),
                       );
                       if (picked != null) {
                         setState(() {
@@ -222,19 +258,21 @@ class _InterestPreview extends StatelessWidget {
     required this.principal,
     required this.rate,
     required this.period,
+    required this.issuedAt,
     required this.dueDate,
   });
 
   final double principal;
   final double rate;
   final InterestPeriod period;
+  final DateTime issuedAt;
   final DateTime? dueDate;
 
   /// Mirrors loan_term_months() in 0012: started months, minimum one, so
   /// the figure here is the figure the database will store.
   int get _termMonths {
     if (dueDate == null) return 1;
-    final days = dueDate!.difference(DateTime.now()).inDays;
+    final days = dueDate!.difference(issuedAt).inDays;
     if (days <= 0) return 1;
     return (days / 30).ceil().clamp(1, 1200);
   }

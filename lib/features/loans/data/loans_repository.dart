@@ -54,6 +54,7 @@ class LoansRepository {
     InterestPeriod interestPeriod = InterestPeriod.oneOff,
     String? purpose,
     DateTime? dueDate,
+    DateTime? issuedAt,
   }) async {
     final result = await _client.rpc('record_loan_for_member', params: {
       'p_chama_id': chamaId,
@@ -63,6 +64,13 @@ class LoansRepository {
       'p_interest_period': interestPeriod.value,
       'p_purpose': purpose,
       'p_due_date': dueDate?.toIso8601String().split('T').first,
+      // Midday rather than midnight: the database stores this as a
+      // timestamptz, and midnight East Africa time is the previous day in
+      // UTC, which would date the loan and its ledger entry a day early.
+      'p_issued_at': issuedAt == null
+          ? null
+          : DateTime.utc(issuedAt.year, issuedAt.month, issuedAt.day, 9)
+              .toIso8601String(),
     });
     return result as String;
   }
