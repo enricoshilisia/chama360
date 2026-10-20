@@ -21,7 +21,7 @@ class ChamaRepository {
   /// every transactions query so activity feeds never show a bare amount
   /// with no indication of whose it is.
   static const _transactionSelect =
-      '*, chama_members(user_id, managed_full_name:full_name, profiles(full_name, email))';
+      '*, chama_members(user_id, managed_full_name:full_name, profiles!chama_members_user_id_fkey(full_name, email))';
 
   Future<List<Chama>> myChamas({bool online = true}) async {
     if (!online) {

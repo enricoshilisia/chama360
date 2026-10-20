@@ -19,7 +19,7 @@ class LoansRepository {
     final rows = await _client
         .from('loans')
         .select(
-            '*, chama_members(user_id, managed_full_name:full_name, profiles(full_name, email))')
+            '*, chama_members(user_id, managed_full_name:full_name, profiles!chama_members_user_id_fkey(full_name, email))')
         .eq('chama_id', chamaId)
         .order('created_at', ascending: false);
 

@@ -36,7 +36,7 @@ class ReportsRepository {
           .from('loan_repayments')
           .select('amount, repaid_at, loan_id, '
               'loans!inner(chama_id, member_id, '
-              'chama_members(managed_full_name:full_name, profiles(full_name, email)))')
+              'chama_members(managed_full_name:full_name, profiles!chama_members_user_id_fkey(full_name, email)))')
           .eq('loans.chama_id', chamaId)
           .order('repaid_at', ascending: false),
     ]);
